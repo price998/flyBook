@@ -1,0 +1,52 @@
+<resources>
+    <string name="app_name">My Application</string>
+    <string name="login_title">飞书知识问答</string>
+    <string name="login_subtitle">整合所有资料，让 AI 搜索回答</string>
+    <string name="hint_account_phone">账号/手机号</string>
+    <string name="hint_password">密码</string>
+    <string name="forgot_password">忘记密码?</string>
+    <string name="login_button_text">登录</string>
+    <string name="register_prompt">没有账号? 立即注册</string>
+    <string name="dialogue_subtitle_count">整合你可访问的 3480814个知识点，AI 搜索生成回答</string>
+    <string name="network_search">联网搜索</string>
+    <string name="hold_to_speak">按住 说话</string>
+    <string name="content_description_new_dialogue_icon">新建对话图标</string>
+    <string name="content_description_menu_icon">菜单图标</string>
+    <string name="content_description_logo">Logo</string>
+    <string name="content_description_document_list_icon">文档列表图标</string>
+    <string name="content_description_add_icon">添加图标</string>
+    <string name="content_description_network_search_icon">联网搜索图标</string>
+    <string name="content_description_more_options_icon">更多选项图标</string>
+    <string name="input_message_hint">输入消息...</string>
+    <string name="model_selector_title">选择模型</string>
+    <string name="selected">已选择</string>
+    <string name="model_gpt4">GPT-4</string>
+    <string name="model_gpt35">GPT-3.5</string>
+    <string name="model_claude">Claude</string>
+    <string name="model_default">默认模型</string>
+    <string name="current_model">当前模型</string>
+
+    <!-- Chat Page Strings -->
+    <string name="user_message_sample">简单介绍一下自己</string>
+    <string name="authorization_info">你已授权每次问答可使用资料生成，内容不会被 AI 学习也不会用于模型训练。取消授权</string>
+    <string name="completed_deep_thinking">已完成深度思考</string>
+    <string name="ai_self_introduction">我是一个知识问答助手，主要擅长通过阅读、归纳和总结信息来为用户解答问题。无论是知识查询、信息整理还是日常疑问，我都会尽力提供准确、清晰的回答，帮助你高效获取所需内容。</string>
+    <string name="data_privacy_info">AI 基于你有限的资料生成，数据保密你可见</string>
+    <string name="answer_source_info">该答案基于通用知识或互联网信息生成，上传更多自有资料，可生成专属答案</string>
+    <string name="upload_file">上传文件</string>
+    <string name="chat_input_hint">问个问题，或用知识写点内容</string>
+    <string name="content_description_share_icon">分享图标</string>
+    <string name="content_description_copy_icon">复制图标</string>
+    <string name="content_description_collect_icon">收藏图标</string>
+    <string name="content_description_like_icon">点赞图标</string>
+    <string name="content_description_refresh_icon">刷新图标</string>
+    <string name="content_description_info_icon">信息图标</string>
+    <string name="content_description_back_icon">返回图标</string>
+    <string name="content_description_history_icon">查看历史对话图标</string>
+    <string name="content_description_send_button">发送按钮</string>
+    <string name="new_dialogue">新对话</string>
+    <string name="knowledge_base">知识库</string>
+    <string name="history_dialogue">历史对话</string>
+    <string name="content_description_knowledge_base">知识库</string>
+    <string name="content_description_expand">展开</string>
+</resources>
