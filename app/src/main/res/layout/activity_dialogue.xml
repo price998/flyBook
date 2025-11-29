@@ -106,6 +106,18 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@id/dialogue_main_title_text" />
 
+        <!-- Recommended Topics List -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/topic_recyclerview"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="32dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/dialogue_main_subtitle_text" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -331,6 +343,43 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
+    <!-- Search Bar -->
+    <LinearLayout
+        android:id="@+id/search_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/rounded_corner_gray_background"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintTop_toBottomOf="@id/drawer_header">
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@android:drawable/ic_menu_search"
+            app:tint="@android:color/darker_gray" />
+
+        <EditText
+            android:id="@+id/search_edit_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@null"
+            android:hint="搜索历史对话"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:maxLines="1"
+            android:textColor="@android:color/black"
+            android:textSize="14sp" />
+    </LinearLayout>
+
     <!-- History Section Title -->
     <TextView
         android:id="@+id/history_section_title"
@@ -342,7 +391,7 @@
         android:textColor="@android:color/darker_gray"
         android:textSize="14sp"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/drawer_header" />
+        app:layout_constraintTop_toBottomOf="@id/search_container" />
 
     <!-- History List -->
     <androidx.recyclerview.widget.RecyclerView

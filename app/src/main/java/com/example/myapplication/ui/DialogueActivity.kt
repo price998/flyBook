@@ -18,6 +18,7 @@ import com.example.myapplication.repository.ChatRepository
 import kotlinx.coroutines.launch
 import com.example.myapplication.adapter.HistoryAdapter
 import com.example.myapplication.adapter.ModelAdapter
+import com.example.myapplication.adapter.TopicAdapter
 import com.example.myapplication.databinding.ActivityDialogueBinding
 import com.example.myapplication.databinding.DialogModelSelectorBinding
 import com.example.myapplication.model.ModelConfig
@@ -40,6 +41,7 @@ class DialogueActivity : AppCompatActivity() {
     private var isNetworkSearchEnabled = false
     
     private lateinit var historyAdapter: HistoryAdapter
+    private lateinit var topicAdapter: TopicAdapter
     
     private val models = ModelRegistry.ALL_MODELS
 
@@ -56,6 +58,8 @@ class DialogueActivity : AppCompatActivity() {
         selectedModel = ModelPreferences.getSelectedModel(this)
         
         setupHistoryRecyclerView()
+        setupTopicRecyclerView()
+        setupSearch()
         observeViewModel()
 
         binding.documentListIcon.setOnClickListener { toggleInputMode() }
@@ -207,14 +211,44 @@ class DialogueActivity : AppCompatActivity() {
         }
     }
     
+    private fun setupTopicRecyclerView() {
+        topicAdapter = TopicAdapter { topic ->
+            // Handle topic click - fill input or start chat
+            if (!topic.prompt.isNullOrEmpty()) {
+                // 如果是键盘模式，填入输入框
+                if (!isKeyboardMode) {
+                    toggleInputMode()
+                }
+                binding.messageInputEdittext.setText(topic.prompt)
+                binding.messageInputEdittext.setSelection(topic.prompt.length)
+            }
+        }
+        binding.topicRecyclerview.layoutManager = LinearLayoutManager(this)
+        binding.topicRecyclerview.adapter = topicAdapter
+    }
+    
     private fun observeViewModel() {
         viewModel.historyList.observe(this) { history -> historyAdapter.updateData(history) }
+        
+        viewModel.topicList.observe(this) { topics ->
+            topicAdapter.updateData(topics)
+        }
 
         viewModel.errorMessage.observe(this) { error ->
             error?.let { Toast.makeText(this, it, Toast.LENGTH_SHORT).show() }
         }
     }
     
+    private fun setupSearch() {
+        binding.searchEditText.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                viewModel.search(s?.toString() ?: "")
+            }
+        })
+    }
+
     private fun setupHistoryRecyclerView() {
         historyAdapter =
                 HistoryAdapter(
@@ -229,12 +263,43 @@ class DialogueActivity : AppCompatActivity() {
                         startActivity(intent)
                     },
                     onItemLongClick = { history ->
-                        // Handle long click - 显示重命名对话框
-                        showRenameDialog(history.id, history.title)
+                        // Handle long click - 显示操作菜单
+                        showLongClickMenu(history)
                     }
                 )
         binding.historyRecyclerview.layoutManager = LinearLayoutManager(this)
         binding.historyRecyclerview.adapter = historyAdapter
+    }
+
+    private fun showLongClickMenu(history: com.example.myapplication.model.ChatHistory) {
+        val options = arrayOf(
+            if (history.isPinned) "取消置顶" else "置顶对话",
+            "重命名",
+            "删除对话"
+        )
+
+        AlertDialog.Builder(this)
+            .setTitle(history.title)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> viewModel.togglePin(history.id, history.isPinned)
+                    1 -> showRenameDialog(history.id, history.title)
+                    2 -> showDeleteConfirmDialog(history.id)
+                }
+            }
+            .show()
+    }
+
+    private fun showDeleteConfirmDialog(conversationId: String) {
+        AlertDialog.Builder(this)
+            .setTitle("确认删除")
+            .setMessage("确定要删除这个对话吗？")
+            .setPositiveButton("删除") { _, _ ->
+                viewModel.deleteConversation(conversationId)
+                Toast.makeText(this, "已删除", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
     
     private fun showRenameDialog(conversationId: String, currentTitle: String) {

@@ -43,6 +43,12 @@ class HistoryAdapter(
     fun bind(history: ChatHistory) {
       binding.historyTitle.text = history.title
       binding.historyPreview.text = history.lastMessage
+      binding.iconPinned.visibility = if (history.isPinned) android.view.View.VISIBLE else android.view.View.GONE
+      // 置顶项背景色微调
+      binding.root.setBackgroundColor(
+          if (history.isPinned) 0x0D000000.toInt() // 浅灰色背景 (5% black)
+          else 0x00000000 // 透明
+      )
     }
   }
 
