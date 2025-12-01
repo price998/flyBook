@@ -10,6 +10,8 @@ import com.example.myapplication.model.ChatHistory
 import com.example.myapplication.repository.ChatRepository
 import com.example.myapplication.repository.HistoryRepository
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 import com.example.myapplication.data.db.RecommendedTopicEntity
 
@@ -34,6 +36,15 @@ class DialogueViewModel(application: Application) : AndroidViewModel(application
     private val _errorMessage = MutableLiveData<String?>()
     val errorMessage: LiveData<String?> = _errorMessage
 
+    private val _isVoiceMode = MutableLiveData<Boolean>(false)
+    val isVoiceMode: LiveData<Boolean> = _isVoiceMode
+
+    private val _toastMessage = MutableLiveData<String?>()
+    val toastMessage: LiveData<String?> = _toastMessage
+
+    private val _shouldClearInput = MutableLiveData<Boolean>(false)
+    val shouldClearInput: LiveData<Boolean> = _shouldClearInput
+
     init {
         initializeTopics()
         loadHistory()
@@ -45,32 +56,20 @@ class DialogueViewModel(application: Application) : AndroidViewModel(application
             if (topicDao.getCount() == 0) {
                 val defaultTopics = listOf(
                     RecommendedTopicEntity(
-                        title = "如何制定学习计划？",
-                        category = "STUDY",
-                        prompt = "请帮我制定一个高效的学习计划，目标是...",
-                        sortOrder = 1,
-                        createdAt = System.currentTimeMillis()
+                        title = "🤝 怎样提升团队协作效率？",
+                        prompt = "怎样提升团队协作效率？"
                     ),
                     RecommendedTopicEntity(
-                        title = "写一首关于春天的诗",
-                        category = "LIFE",
-                        prompt = "请写一首关于春天的现代诗，风格要...",
-                        sortOrder = 2,
-                        createdAt = System.currentTimeMillis()
+                        title = "📚 飞书知识问答是什么？",
+                        prompt = "飞书知识问答是什么？"
                     ),
                     RecommendedTopicEntity(
-                        title = "解释量子力学",
-                        category = "TECH",
-                        prompt = "请用通俗易懂的语言解释一下量子力学。",
-                        sortOrder = 3,
-                        createdAt = System.currentTimeMillis()
+                        title = "⚛️ 解释量子力学",
+                        prompt = "请用通俗的语言给我解释量子力学的核心概念。"
                     ),
                     RecommendedTopicEntity(
-                        title = "工作周报生成",
-                        category = "WORK",
-                        prompt = "请帮我生成一份工作周报，本周主要工作内容有...",
-                        sortOrder = 4,
-                        createdAt = System.currentTimeMillis()
+                        title = "📊 OKR和KPI有什么区别？",
+                        prompt = "请用通俗的语言给我解释OKR和KPI有什么区别。"
                     )
                 )
                 topicDao.insertAll(defaultTopics)
@@ -81,7 +80,7 @@ class DialogueViewModel(application: Application) : AndroidViewModel(application
     
     private fun loadTopics() {
         viewModelScope.launch {
-            topicDao.getAllActiveTopics().collect { topics ->
+            topicDao.getAllTopics().collect { topics ->
                 _topicList.value = topics
             }
         }
@@ -98,6 +97,23 @@ class DialogueViewModel(application: Application) : AndroidViewModel(application
                 _errorMessage.value = "加载失败: ${e.message}"
             } finally {
                 _isLoading.value = false
+            }
+        }
+    }
+    
+    fun createNewConversation(title: String, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                // 如果标题太长，截取前20个字符
+                val displayTitle = if (title.length > 20) title.substring(0, 20) + "..." else title
+                val id = withContext(Dispatchers.IO) {
+                    chatRepository.createConversation(displayTitle)
+                }
+                onResult(id)
+                loadHistory()
+            } catch (e: Exception) {
+                android.util.Log.e("DialogueViewModel", "创建对话失败", e)
+                _errorMessage.value = "创建对话失败: ${e.message}"
             }
         }
     }
@@ -151,5 +167,25 @@ class DialogueViewModel(application: Application) : AndroidViewModel(application
                 _isLoading.value = false
             }
         }
+    }
+
+    fun toggleVoiceMode() {
+        _isVoiceMode.value = !(_isVoiceMode.value ?: false)
+    }
+
+    fun onToastShown() {
+        _toastMessage.value = null
+    }
+
+    fun onInputCleared() {
+        _shouldClearInput.value = false
+    }
+    
+    fun showToast(message: String) {
+        _toastMessage.value = message
+    }
+    
+    fun clearInput() {
+        _shouldClearInput.value = true
     }
 }

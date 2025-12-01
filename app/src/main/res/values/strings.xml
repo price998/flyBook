@@ -25,6 +25,15 @@
     <string name="model_claude">Claude</string>
     <string name="model_default">默认模型</string>
     <string name="current_model">当前模型</string>
+    
+    <string name="menu_new_chat">创建新聊天</string>
+    <string name="menu_knowledge">我的知识库</string>
+    <string name="menu_history">历史对话</string>
+    <string name="input_hint">问个问题，或用知识写点内容</string>
+    <string name="mic_hint">按住 说话</string>
+    <string name="main_title">飞书知识问答</string>
+    <string name="main_subtitle">整合你可访问的n个文档，AI搜索生成回答</string>
+    <string name="web_search_text">联网搜索</string>
 
     <!-- Chat Page Strings -->
     <string name="user_message_sample">简单介绍一下自己</string>
