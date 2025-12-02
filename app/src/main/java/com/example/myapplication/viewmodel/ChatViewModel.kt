@@ -32,7 +32,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 当前对话ID
     private var conversationId: String = ""
 
-    private val _messages = MutableLiveData<MutableList<ChatMessage>>(mutableListOf())
+    private val _messages = MutableLiveData(mutableListOf<ChatMessage>())
     val messages: LiveData<MutableList<ChatMessage>> = _messages
 
     // 用于通知 UI 列表有更新（插入或修改）
@@ -51,6 +51,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // 联网搜索开关状态
     private val _isSearchEnabled = MutableLiveData(false)
+    @Suppress("unused")
     val isSearchEnabled: LiveData<Boolean> = _isSearchEnabled
 
     fun toggleSearch(enabled: Boolean) {

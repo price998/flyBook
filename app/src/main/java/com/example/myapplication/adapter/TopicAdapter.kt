@@ -1,7 +1,6 @@
 package com.example.myapplication.adapter
 
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
@@ -42,20 +41,15 @@ class TopicAdapter(
         init {
             binding.root.setOnClickListener {
                 val position = adapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    onItemClick(topics[position])
+                if (position != RecyclerView.NO_POSITION && topics.isNotEmpty()) {
+                    val actualPosition = getPseudoRandomIndex(position, topics.size)
+                    onItemClick(topics[actualPosition])
                 }
             }
         }
 
         fun bind(topic: RecommendedTopicEntity) {
             binding.topicTitle.text = topic.title
-            if (topic.prompt.isNotEmpty()) {
-                binding.topicSubtitle.text = topic.prompt
-                binding.topicSubtitle.visibility = View.VISIBLE
-            } else {
-                binding.topicSubtitle.visibility = View.GONE
-            }
         }
     }
 
@@ -65,8 +59,16 @@ class TopicAdapter(
     }
 
     override fun onBindViewHolder(holder: TopicViewHolder, position: Int) {
-        holder.bind(topics[position])
+        if (topics.isNotEmpty()) {
+            val actualPosition = getPseudoRandomIndex(position, topics.size)
+            holder.bind(topics[actualPosition])
+        }
     }
 
-    override fun getItemCount(): Int = topics.size
+    // 话题随机展示
+    private fun getPseudoRandomIndex(position: Int, size: Int): Int {
+        return kotlin.math.abs((position * 17 + 3) % size)
+    }
+
+    override fun getItemCount(): Int = if (topics.isEmpty()) 0 else Int.MAX_VALUE
 }

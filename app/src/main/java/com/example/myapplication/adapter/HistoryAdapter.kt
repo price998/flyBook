@@ -1,6 +1,8 @@
 package com.example.myapplication.adapter
 
+import android.graphics.Color
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
@@ -9,6 +11,7 @@ import com.example.myapplication.model.ChatHistory
 
 class HistoryAdapter(
         private var historyList: MutableList<ChatHistory>,
+        private var currentConversationId: String? = null,
         private val onItemClick: (ChatHistory) -> Unit,
         private val onItemLongClick: ((ChatHistory) -> Unit)? = null
 ) : RecyclerView.Adapter<HistoryAdapter.HistoryViewHolder>() {
@@ -37,6 +40,21 @@ class HistoryAdapter(
     }
   }
 
+  fun setSelectedId(id: String?) {
+    val previousId = currentConversationId
+    currentConversationId = id
+    
+    // 刷新变化的部分
+    if (previousId != null) {
+        val prevIndex = historyList.indexOfFirst { it.id == previousId }
+        if (prevIndex != -1) notifyItemChanged(prevIndex)
+    }
+    if (id != null) {
+        val newIndex = historyList.indexOfFirst { it.id == id }
+        if (newIndex != -1) notifyItemChanged(newIndex)
+    }
+  }
+
   inner class HistoryViewHolder(private val binding: ItemHistoryBinding) :
           RecyclerView.ViewHolder(binding.root) {
 
@@ -62,13 +80,16 @@ class HistoryAdapter(
     fun bind(history: ChatHistory) {
       binding.historyTitle.text = history.title
       binding.historyPreview.text = history.lastMessage
-      binding.iconPinned.visibility =
-              if (history.isPinned) android.view.View.VISIBLE else android.view.View.GONE
-      // 置顶项背景色微调
-      binding.root.setBackgroundColor(
-              if (history.isPinned) 0x0D000000 // 浅灰色背景 (5% black)
-              else 0x00000000 // 透明
-      )
+
+      binding.iconPinned.visibility = if (history.isPinned) View.VISIBLE else View.GONE
+      
+      // 背景色
+      val backgroundColor = when {
+          history.id == currentConversationId -> Color.parseColor("#E3F2FD") 
+          history.isPinned -> 0x0D000000.toInt() 
+          else -> Color.TRANSPARENT
+      }
+      binding.root.setBackgroundColor(backgroundColor)
     }
   }
 

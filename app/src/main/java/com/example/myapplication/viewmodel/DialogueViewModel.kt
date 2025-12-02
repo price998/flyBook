@@ -8,40 +8,52 @@ import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.DefaultTopics
 import com.example.myapplication.data.db.AppDatabase
 import com.example.myapplication.data.db.RecommendedTopicEntity
-import com.example.myapplication.model.ChatHistory
-import com.example.myapplication.repository.ChatRepository
-import com.example.myapplication.repository.HistoryRepository
 import kotlinx.coroutines.launch
+
 
 class DialogueViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = HistoryRepository(application)
-    private val chatRepository =
-            ChatRepository(
-                    AppDatabase.getDatabase(application).messageDao(),
-                    AppDatabase.getDatabase(application).conversationDao()
-            )
     private val topicDao = AppDatabase.getDatabase(application).recommendedTopicDao()
-
-    private val _historyList = MutableLiveData<List<ChatHistory>>()
-    val historyList: LiveData<List<ChatHistory>> = _historyList
 
     private val _topicList = MutableLiveData<List<RecommendedTopicEntity>>()
     val topicList: LiveData<List<RecommendedTopicEntity>> = _topicList
 
+    private val _isVoiceMode = MutableLiveData(false)
+    val isVoiceMode: LiveData<Boolean> = _isVoiceMode
 
-    private val _errorMessage = MutableLiveData<String?>()
-    val errorMessage: LiveData<String?> = _errorMessage
+    private val _toastMessage = MutableLiveData<String?>()
+    val toastMessage: LiveData<String?> = _toastMessage
+
+    private val _shouldClearInput = MutableLiveData(false)
+    val shouldClearInput: LiveData<Boolean> = _shouldClearInput
 
     init {
         initializeTopics()
-        loadHistory()
         loadTopics()
     }
 
     private fun initializeTopics() {
         viewModelScope.launch {
             if (topicDao.getCount() == 0) {
+                val defaultTopics = listOf(
+                    RecommendedTopicEntity(
+                        title = "🤝 怎样提升团队协作效率？",
+                        prompt = "怎样提升团队协作效率？"
+                    ),
+                    RecommendedTopicEntity(
+                        title = "📚 飞书知识问答是什么？",
+                        prompt = "飞书知识问答是什么？"
+                    ),
+                    RecommendedTopicEntity(
+                        title = "⚛️ 解释量子力学",
+                        prompt = "请用通俗的语言给我解释量子力学的核心概念。"
+                    ),
+                    RecommendedTopicEntity(
+                        title = "📊 OKR和KPI有什么区别？",
+                        prompt = "请用通俗的语言给我解释OKR和KPI有什么区别。"
+                    )
+                )
+                topicDao.insertAll(defaultTopics)
                 topicDao.insertAll(DefaultTopics.getDefaultTopics())
                 loadTopics()
             }
@@ -50,68 +62,46 @@ class DialogueViewModel(application: Application) : AndroidViewModel(application
 
     private fun loadTopics() {
         viewModelScope.launch {
-            topicDao.getAllActiveTopics().collect { topics -> _topicList.value = topics }
-        }
-    }
-
-    fun loadHistory() {
-        viewModelScope.launch {
-            _errorMessage.value = null
-            try {
-                val list = repository.getHistoryList()
-                _historyList.value = list
-            } catch (e: Exception) {
-                _errorMessage.value = "加载失败: ${e.message}"
+            topicDao.getAllTopics().collect { topics ->
+                _topicList.value = topics
             }
         }
     }
 
-    fun renameConversation(conversationId: String, newTitle: String) {
-        viewModelScope.launch {
-            try {
-                chatRepository.updateConversationTitle(conversationId, newTitle)
-                loadHistory()
-            } catch (e: Exception) {
-                _errorMessage.value = "重命名失败: ${e.message}"
-            }
-        }
+    /**
+     * 切换语音模式
+     */
+    fun toggleVoiceMode() {
+        _isVoiceMode.value = !(_isVoiceMode.value ?: false)
     }
 
-    fun deleteConversation(conversationId: String) {
-        viewModelScope.launch {
-            try {
-                repository.deleteConversation(conversationId)
-                loadHistory() // 刷新列表
-            } catch (e: Exception) {
-                _errorMessage.value = "删除失败: ${e.message}"
-            }
-        }
+    /**
+     * Toast 消息已显示
+     */
+    fun onToastShown() {
+        _toastMessage.value = null
     }
 
-    fun togglePin(conversationId: String, currentIsPinned: Boolean) {
-        viewModelScope.launch {
-            try {
-                // 切换置顶状态：当前是置顶则取消，当前未置顶则置顶
-                repository.togglePin(conversationId, !currentIsPinned)
-                loadHistory()
-            } catch (e: Exception) {
-                _errorMessage.value = "操作失败: ${e.message}"
-            }
-        }
+    /**
+     * 输入框已清空
+     */
+    fun onInputCleared() {
+        _shouldClearInput.value = false
     }
-
-    fun search(query: String) {
-        viewModelScope.launch {
-            try {
-                if (query.isBlank()) {
-                    loadHistory() // 如果搜索词为空，加载全部
-                } else {
-                    val list = repository.searchHistory(query)
-                    _historyList.value = list
-                }
-            } catch (e: Exception) {
-                _errorMessage.value = "搜索失败: ${e.message}"
-            }
-        }
+    
+    /**
+     * 显示 Toast 消息
+     */
+    @Suppress("unused")
+    fun showToast(message: String) {
+        _toastMessage.value = message
+    }
+    
+    /**
+     * 清空输入框
+     */
+    @Suppress("unused")
+    fun clearInput() {
+        _shouldClearInput.value = true
     }
 }

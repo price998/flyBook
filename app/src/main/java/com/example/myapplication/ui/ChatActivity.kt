@@ -7,17 +7,22 @@ import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.R
 import com.example.myapplication.adapter.ChatMessageAdapter
 import com.example.myapplication.adapter.HistoryAdapter
+import com.example.myapplication.adapter.ModelAdapter
 import com.example.myapplication.databinding.ActivityChatBinding
+import com.example.myapplication.databinding.DialogModelSelectorBinding
 import com.example.myapplication.model.ModelRegistry
 import com.example.myapplication.utils.DialogHelper
 import com.example.myapplication.viewmodel.ChatViewModel
-import com.example.myapplication.viewmodel.DialogueViewModel
+import com.example.myapplication.viewmodel.HistoryViewModel
 import com.example.myapplication.viewmodel.MessageUpdateEvent
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
 import io.noties.markwon.ext.tables.TablePlugin
@@ -37,12 +42,18 @@ class ChatActivity : AppCompatActivity() {
 
     private var isKeyboardMode = false
     private var previousMessageCount = 0
+    private var isNetworkSearchEnabled = false
 
     private lateinit var chatMessageAdapter: ChatMessageAdapter
     private lateinit var viewModel: ChatViewModel
-    private lateinit var dialogueViewModel: DialogueViewModel
+    private lateinit var historyViewModel: HistoryViewModel
     private lateinit var binding: ActivityChatBinding
     private lateinit var historyAdapter: HistoryAdapter
+    
+    // Model selector dialog
+    private val models = ModelRegistry.ALL_MODELS
+    private lateinit var dialog: BottomSheetDialog
+    private lateinit var dialogBinding: DialogModelSelectorBinding
     
     // Markwon 实例 - Activity 级别单例，注入到 Adapter
     // 暂时不使用代码高亮以提升性能，编译成功后可以添加
@@ -64,8 +75,10 @@ class ChatActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         viewModel = ViewModelProvider(this)[ChatViewModel::class.java]
-        dialogueViewModel = ViewModelProvider(this)[DialogueViewModel::class.java]
+        historyViewModel = ViewModelProvider(this)[HistoryViewModel::class.java]
         
+        setupWindowInsets()
+
         // 获取对话ID并设置到ViewModel
         val conversationId = intent.getStringExtra(EXTRA_CONVERSATION_ID) ?: ""
         if (conversationId.isNotEmpty()) {
@@ -85,11 +98,8 @@ class ChatActivity : AppCompatActivity() {
                 chatMessageAdapter = it
             }
             
-            // 性能优化配置
-            setHasFixedSize(true) // item 高度固定时可以设置，提升性能
-            setItemViewCacheSize(20) // 增加缓存大小，减少 onCreateViewHolder 调用
-            
-            // 禁用闪烁动画，避免流式输出时的视觉抖动
+            setHasFixedSize(true)
+            setItemViewCacheSize(20)
             (itemAnimator as? androidx.recyclerview.widget.SimpleItemAnimator)?.supportsChangeAnimations = false
         }
 
@@ -100,23 +110,14 @@ class ChatActivity : AppCompatActivity() {
         setupHistoryRecyclerView()
         
         // 观察历史对话数据
-        dialogueViewModel.historyList.observe(this) { history ->
+        historyViewModel.historyList.observe(this) { history ->
             historyAdapter.updateData(history)
         }
         
         // 观察AI生成状态，控制停止按钮的显示
         viewModel.isGenerating.observe(this) { isGenerating ->
-            binding.chatStopButton.visibility = if (isGenerating) View.VISIBLE else View.GONE
-            binding.chatSendButton.visibility = if (isGenerating) View.GONE else View.VISIBLE
-        }
-
-        // 观察联网搜索状态
-        viewModel.isSearchEnabled.observe(this) { isEnabled ->
-            if (isEnabled) {
-                binding.networkSearchLayoutChat.setBackgroundResource(R.drawable.rounded_corner_blue_background)
-            } else {
-                binding.networkSearchLayoutChat.setBackgroundResource(R.drawable.rounded_corner_gray_background)
-            }
+            binding.ivStop.visibility = if (isGenerating) View.VISIBLE else View.GONE
+            binding.ivSend.visibility = if (isGenerating) View.GONE else View.VISIBLE
         }
         
         // 观察消息列表变化（用于切换对话时的刷新）
@@ -208,36 +209,37 @@ class ChatActivity : AppCompatActivity() {
                 viewModel.sendMessage(question)
             }
         }
-
-        // 返回按钮点击事件：回到 DialogueActivity
-        binding.backIcon.setOnClickListener {
-            android.util.Log.d("ChatActivity", "Back icon clicked")
-            val intent = Intent(this, DialogueActivity::class.java)
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            intent.putExtra(DialogueActivity.EXTRA_RESET_INPUT_MODE, true)
-            startActivity(intent)
-            finish()
+        
+        // 处理联网搜索开关状态
+        val isWebSearchEnabled = intent.getBooleanExtra("is_web_search_enabled", false)
+        if (isWebSearchEnabled) {
+            isNetworkSearchEnabled = true
+            binding.layoutWebSearch.isSelected = true
         }
+        
+        // 处理初始语音模式状态
+        val isInitialVoiceMode = intent.getBooleanExtra("is_voice_mode", false)
+        isKeyboardMode = !isInitialVoiceMode // 默认为键盘模式
+        
+        // 根据初始状态设置 UI
+        updateInputModeUI()
 
-        // 新建对话按钮点击事件 - 跳转到主界面
-        binding.newDialogueIcon.setOnClickListener {
-            android.util.Log.d("ChatActivity", "New dialogue icon clicked")
-            Toast.makeText(this, "开始新对话", Toast.LENGTH_SHORT).show()
-            val intent = Intent(this, DialogueActivity::class.java)
-            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            intent.putExtra(DialogueActivity.EXTRA_RESET_INPUT_MODE, true)
-            startActivity(intent)
-            finish()
-        }
-
-        // 查看历史对话按钮点击事件
-        binding.historyIcon.setOnClickListener {
-            android.util.Log.d("ChatActivity", "History icon clicked")
+        // 菜单按钮
+        binding.ivMenu.setOnClickListener {
             binding.chatDrawerLayout.openDrawer(GravityCompat.END)
         }
         
-        // 历史抽屉中的新建对话按钮
-        binding.chatNewDialogueButton.setOnClickListener {
+        // 新对话按钮
+        binding.icNewChat.setOnClickListener {
+            val intent = Intent(this, DialogueActivity::class.java)
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            intent.putExtra(DialogueActivity.EXTRA_RESET_INPUT_MODE, true)
+            startActivity(intent)
+            finish()
+        }
+        
+        // 菜单-新对话按钮
+        binding.btnNewChat.setOnClickListener {
             binding.chatDrawerLayout.closeDrawers()
             Toast.makeText(this, "开始新对话", Toast.LENGTH_SHORT).show()
             val intent = Intent(this, DialogueActivity::class.java)
@@ -245,85 +247,159 @@ class ChatActivity : AppCompatActivity() {
             intent.putExtra(DialogueActivity.EXTRA_RESET_INPUT_MODE, true)
             startActivity(intent)
             finish()
+            updateSidebarSelection(isNewChat = true)
         }
         
-        // 历史抽屉中的知识库按钮
-        binding.chatKnowledgeBaseButton.setOnClickListener {
+        // 菜单-知识库按钮
+        binding.btnKnowledgeBase.setOnClickListener {
+            binding.chatDrawerLayout.closeDrawers()
             Toast.makeText(this, "知识库", Toast.LENGTH_SHORT).show()
+            updateSidebarSelection(isKnowledgeBase = true)
         }
 
-        binding.chatDocumentListIcon.setOnClickListener { toggleInputMode() }
+        binding.ivMic.setOnClickListener { toggleInputMode() }
 
-        binding.moreOptionsIconChat.setOnClickListener { showModelSelectorDialog() }
+        binding.ivMoreIcon.setOnClickListener { showModelSelectorDialog() }
 
-        binding.networkSearchLayoutChat.setOnClickListener { 
-            val currentState = viewModel.isSearchEnabled.value ?: false
-            viewModel.toggleSearch(!currentState)
-        }
+        binding.layoutWebSearch.setOnClickListener { toggleNetworkSearchBackground() }
 
-        binding.chatSendButton.setOnClickListener { sendMessage() }
+        binding.ivSend.setOnClickListener { sendMessage() }
         
-        binding.chatStopButton.setOnClickListener {
+        binding.ivStop.setOnClickListener {
             viewModel.stopGeneration()
             Toast.makeText(this, "正在停止生成...", Toast.LENGTH_SHORT).show()
         }
     }
 
+    private fun setupWindowInsets() {
+        // 确保DrawerLayout不会被状态栏遮挡
+        ViewCompat.setOnApplyWindowInsetsListener(binding.chatDrawerLayout) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0)
+            insets
+        }
+
+        // 确保输入布局在键盘显示时保持可见
+        ViewCompat.setOnApplyWindowInsetsListener(binding.layoutInput) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val bottomPadding = maxOf(imeInsets.bottom, systemBars.bottom)
+            val params = v.layoutParams as android.view.ViewGroup.MarginLayoutParams
+            params.bottomMargin = bottomPadding
+            v.layoutParams = params
+            
+            insets
+        }
+        
+        // 适配侧边栏
+         ViewCompat.setOnApplyWindowInsetsListener(binding.navDrawerLayout) { v, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(v.paddingLeft, systemBars.top + 24, v.paddingRight, v.paddingBottom)
+            insets
+        }
+    }
+
     private fun toggleInputMode() {
         isKeyboardMode = !isKeyboardMode
-
+        updateInputModeUI()
+    }
+    
+    private fun updateInputModeUI() {
         if (isKeyboardMode) {
-            // 切换到键盘输入模式
-            binding.chatHoldToSpeakButton.visibility = View.GONE
-            binding.chatMessageInputEdittext.visibility = View.VISIBLE
-            binding.chatMessageInputEdittext.requestFocus()
-            // 切换为麦克风图标
-            binding.chatDocumentListIcon.setImageResource(R.drawable.microphone)
+            binding.tvHoldToSpeak.visibility = View.GONE
+            binding.etInput.visibility = View.VISIBLE
+            binding.ivMic.setImageResource(R.drawable.ic_mic)
         } else {
-            // 切换到语音输入模式
-            binding.chatHoldToSpeakButton.visibility = View.VISIBLE
-            binding.chatMessageInputEdittext.visibility = View.GONE
-            // 切换回关键词图标
-            binding.chatDocumentListIcon.setImageResource(R.drawable.ic_keyword)
+            binding.tvHoldToSpeak.visibility = View.VISIBLE
+            binding.etInput.visibility = View.GONE
+            binding.ivMic.setImageResource(R.drawable.ic_keyboard)
+            
+            // 隐藏键盘
+            val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.hideSoftInputFromWindow(binding.etInput.windowToken, 0)
         }
     }
 
     private fun showModelSelectorDialog() {
+        // Initialize dialog and binding
+        dialogBinding = DialogModelSelectorBinding.inflate(layoutInflater)
+        dialog = BottomSheetDialog(this)
+        dialog.setContentView(dialogBinding.root)
+        
         val currentModelId = viewModel.currentModel.value?.id ?: ModelRegistry.DEFAULT_MODEL.id
-        DialogHelper.showModelSelectorDialog(this, currentModelId) { modelConfig ->
-            viewModel.switchModel(modelConfig)
+        val adapter =
+                ModelAdapter(models, currentModelId) { modelConfig ->
+                    // 切换模型
+                    viewModel.switchModel(modelConfig)
+                    Toast.makeText(this, "已切换到: ${modelConfig.displayName}", Toast.LENGTH_SHORT)
+                            .show()
+                    dialog.dismiss()
+                }
+
+        dialogBinding.modelListRecyclerview.layoutManager = LinearLayoutManager(this)
+        dialogBinding.modelListRecyclerview.adapter = adapter
+        dialog.show()
+    }
+
+    private fun toggleNetworkSearchBackground() {
+        isNetworkSearchEnabled = !isNetworkSearchEnabled
+        binding.layoutWebSearch.isSelected = isNetworkSearchEnabled
+        
+        if (isNetworkSearchEnabled) {
+            Toast.makeText(this, "联网搜索已开启", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "联网搜索已关闭", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun setupHistoryRecyclerView() {
+        // 获取当前的conversationId
+        val currentConversationId = intent.getStringExtra(EXTRA_CONVERSATION_ID)
+        
         historyAdapter = HistoryAdapter(
             mutableListOf(),
+            currentConversationId = currentConversationId,
             onItemClick = { history ->
                 // Handle history item click - 切换到选中的对话
                 binding.chatDrawerLayout.closeDrawers()
                 
                 // 设置新的对话ID，ViewModel会自动清空当前列表并加载新对话的消息
                 viewModel.setConversationId(history.id)
+                // 更新选中状态
+                historyAdapter.setSelectedId(history.id)
+                // 清除侧边栏按钮选中
+                updateSidebarSelection(isNewChat = false, isKnowledgeBase = false)
             },
             onItemLongClick = { history ->
                 // Handle long click - 显示重命名对话框
                 showRenameDialog(history.id, history.title)
             }
         )
-        binding.chatHistoryRecyclerview.layoutManager = LinearLayoutManager(this)
-        binding.chatHistoryRecyclerview.adapter = historyAdapter
+        // 更新为新的RecyclerView ID
+        binding.historyRecyclerview.layoutManager = LinearLayoutManager(this)
+        binding.historyRecyclerview.adapter = historyAdapter
+    }
+    
+    private fun updateSidebarSelection(isNewChat: Boolean = false, isKnowledgeBase: Boolean = false) {
+        val highlightColor = android.graphics.Color.parseColor("#E3F2FD")
+        binding.btnNewChat.setBackgroundColor(if (isNewChat) highlightColor else android.graphics.Color.TRANSPARENT)
+        binding.btnKnowledgeBase.setBackgroundColor(if (isKnowledgeBase) highlightColor else android.graphics.Color.TRANSPARENT)
+        
+        if (isNewChat || isKnowledgeBase) {
+             historyAdapter.setSelectedId(null)
+        }
     }
     
     private fun showRenameDialog(conversationId: String, currentTitle: String) {
         DialogHelper.showRenameDialog(this, currentTitle) { newTitle ->
-            dialogueViewModel.renameConversation(conversationId, newTitle)
+            historyViewModel.renameConversation(conversationId, newTitle)
         }
     }
 
     private fun sendMessage() {
-        val message = binding.chatMessageInputEdittext.text.toString().trim()
+        val message = binding.etInput.text.toString().trim()
         if (message.isNotEmpty()) {
-            binding.chatMessageInputEdittext.text.clear()
+            binding.etInput.text.clear()
             viewModel.sendMessage(message)
         } else {
             Toast.makeText(this, "消息不能为空", Toast.LENGTH_SHORT).show()
