@@ -15,7 +15,7 @@ import com.example.myapplication.R
 import com.example.myapplication.adapter.HistoryAdapter
 import com.example.myapplication.adapter.ModelAdapter
 import com.example.myapplication.adapter.TopicAdapter
-import com.example.myapplication.databinding.ActivityMainBinding
+import com.example.myapplication.databinding.ActivityDialogueBinding
 import com.example.myapplication.databinding.DialogModelSelectorBinding
 import com.example.myapplication.model.ModelRegistry
 import com.example.myapplication.utils.ModelPreferences
@@ -33,7 +33,7 @@ import androidx.lifecycle.lifecycleScope
 class DialogueActivity : AppCompatActivity() {
 
     private lateinit var viewModel: DialogueViewModel
-    private lateinit var binding: ActivityMainBinding
+    private lateinit var binding: ActivityDialogueBinding
     private lateinit var historyAdapter: HistoryAdapter
     private lateinit var topicAdapter: TopicAdapter
     
@@ -50,7 +50,7 @@ class DialogueActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        binding = ActivityMainBinding.inflate(layoutInflater)
+        binding = ActivityDialogueBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         viewModel = ViewModelProvider(this)[DialogueViewModel::class.java]
