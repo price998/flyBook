@@ -16,16 +16,14 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/top_app_bar"
         android:layout_width="match_parent"
-        android:layout_height="80dp"
-        android:background="@android:color/white"
-        android:elevation="4dp"
+        android:layout_height="wrap_content"
         app:layout_constraintTop_toTopOf="parent">
 
 
         <ImageView
             android:id="@+id/cloud_icon"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
             android:layout_marginEnd="28dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
@@ -40,8 +38,8 @@
 
         <ImageView
             android:id="@+id/menu_icon"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
             android:layout_marginEnd="16dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
@@ -70,9 +68,9 @@
         <!-- Logo -->
         <ImageView
             android:id="@+id/dialogue_logo_image"
-            android:layout_width="180dp"
-            android:layout_height="180dp"
-            android:layout_marginTop="100dp"
+            android:layout_width="150dp"
+            android:layout_height="150dp"
+            android:layout_marginTop="40dp"
             android:src="@drawable/logo"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
@@ -84,7 +82,7 @@
             android:id="@+id/dialogue_main_title_text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="10dp"
             android:text="@string/login_title"
             android:textColor="@android:color/black"
             android:textSize="28sp"
@@ -289,7 +287,7 @@
             <ImageView
                 android:layout_width="20dp"
                 android:layout_height="20dp"
-                android:src="@drawable/add"
+                android:src="@drawable/add_chat"
                 android:contentDescription="@string/content_description_new_dialogue_icon" />
 
             <TextView

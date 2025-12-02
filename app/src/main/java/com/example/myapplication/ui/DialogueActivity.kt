@@ -3,7 +3,6 @@ package com.example.myapplication.ui
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
@@ -13,19 +12,16 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.R
-import com.example.myapplication.data.db.AppDatabase
-import com.example.myapplication.repository.ChatRepository
-import kotlinx.coroutines.launch
 import com.example.myapplication.adapter.HistoryAdapter
-import com.example.myapplication.adapter.ModelAdapter
 import com.example.myapplication.adapter.TopicAdapter
+import com.example.myapplication.data.db.AppDatabase
 import com.example.myapplication.databinding.ActivityDialogueBinding
-import com.example.myapplication.databinding.DialogModelSelectorBinding
 import com.example.myapplication.model.ModelConfig
-import com.example.myapplication.model.ModelRegistry
+import com.example.myapplication.repository.ChatRepository
+import com.example.myapplication.utils.DialogHelper
 import com.example.myapplication.utils.ModelPreferences
 import com.example.myapplication.viewmodel.DialogueViewModel
-import com.google.android.material.bottomsheet.BottomSheetDialog
+import kotlinx.coroutines.launch
 
 class DialogueActivity : AppCompatActivity() {
 
@@ -42,8 +38,6 @@ class DialogueActivity : AppCompatActivity() {
     
     private lateinit var historyAdapter: HistoryAdapter
     private lateinit var topicAdapter: TopicAdapter
-    
-    private val models = ModelRegistry.ALL_MODELS
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,7 +65,7 @@ class DialogueActivity : AppCompatActivity() {
         }
 
         binding.sendButton.setOnClickListener {
-            val question = binding.messageInputEdittext.text?.toString()?.trim().orEmpty()
+            val question = binding.messageInputEdittext.text.toString().trim()
             if (question.isEmpty()) {
                 Toast.makeText(this, "请先输入问题", Toast.LENGTH_SHORT).show()
             } else {
@@ -88,9 +82,11 @@ class DialogueActivity : AppCompatActivity() {
                     val intent = Intent(this@DialogueActivity, ChatActivity::class.java)
                     intent.putExtra(ChatActivity.EXTRA_CONVERSATION_ID, conversationId)
                     intent.putExtra(ChatActivity.EXTRA_INITIAL_QUESTION, question)
+                    // 传递联网搜索状态
+                    intent.putExtra(ChatActivity.EXTRA_ENABLE_SEARCH, isNetworkSearchEnabled)
                     startActivity(intent)
                     
-                    binding.messageInputEdittext.text?.clear()
+                    binding.messageInputEdittext.text.clear()
                     resetInputMode()
                 }
             }
@@ -108,11 +104,11 @@ class DialogueActivity : AppCompatActivity() {
             }
         }
         
-        // Cloud icon click listener (新建对话)
+        // Cloud icon click listener (上传文件)
         binding.cloudIcon.setOnClickListener {
-            android.util.Log.d("DialogueActivity", "Cloud icon clicked")
-            Toast.makeText(this, "新建对话", Toast.LENGTH_SHORT).show()
-            // TODO: 实现新建对话逻辑
+            android.util.Log.d("DialogueActivity", "Cloud icon clicked - Upload file")
+            Toast.makeText(this, "上传文件功能开发中", Toast.LENGTH_SHORT).show()
+            // TODO: 实现文件上传功能
         }
         
         // Menu icon click listener (打开历史记录抽屉)
@@ -124,7 +120,7 @@ class DialogueActivity : AppCompatActivity() {
         // New dialogue button click listener
         binding.newDialogueButton.setOnClickListener {
             binding.drawerLayout.closeDrawers()
-            Toast.makeText(this, "新建对话", Toast.LENGTH_SHORT).show()
+            startNewConversation()
         }
         
         // Knowledge base button click listener
@@ -177,26 +173,39 @@ class DialogueActivity : AppCompatActivity() {
         binding.documentListIcon.setImageResource(R.drawable.ic_keyword)
     }
 
+    /**
+     * 开始新对话
+     * 清空输入框、重置输入模式、重置联网搜索状态
+     */
+    private fun startNewConversation() {
+        // 清空输入框
+        binding.messageInputEdittext.text.clear()
+        
+        // 重置输入模式为语音模式
+        resetInputMode()
+        
+        // 重置联网搜索状态
+        if (isNetworkSearchEnabled) {
+            isNetworkSearchEnabled = false
+            binding.networkSearchLayout.setBackgroundResource(R.drawable.rounded_corner_gray_background)
+        }
+        
+        // 关闭抽屉（如果打开的话）
+        if (binding.drawerLayout.isDrawerOpen(GravityCompat.END)) {
+            binding.drawerLayout.closeDrawers()
+        }
+        
+        // 显示提示
+        Toast.makeText(this, "开始新对话", Toast.LENGTH_SHORT).show()
+        
+        android.util.Log.d("DialogueActivity", "Started new conversation")
+    }
+
     private fun showModelSelectorDialog() {
-        val dialog = BottomSheetDialog(this)
-        val dialogBinding = DialogModelSelectorBinding.inflate(layoutInflater)
-        dialog.setContentView(dialogBinding.root)
-
-        dialogBinding.modelListRecyclerview.layoutManager = LinearLayoutManager(this)
-
-        val adapter =
-                ModelAdapter(models, selectedModel.id) { modelConfig ->
-                    // 切换模型
-                    selectedModel = modelConfig
-                    // 保存到 SharedPreferences
-                    ModelPreferences.saveSelectedModel(this, modelConfig.id)
-                    Toast.makeText(this, "已切换到: ${modelConfig.displayName}", Toast.LENGTH_SHORT)
-                            .show()
-                    dialog.dismiss()
-                }
-
-        dialogBinding.modelListRecyclerview.adapter = adapter
-        dialog.show()
+        DialogHelper.showModelSelectorDialog(this, selectedModel.id) { modelConfig ->
+            selectedModel = modelConfig
+            ModelPreferences.saveSelectedModel(this, modelConfig.id)
+        }
     }
     
     private fun toggleNetworkSearchBackground(networkSearchLayout: View) {
@@ -214,7 +223,7 @@ class DialogueActivity : AppCompatActivity() {
     private fun setupTopicRecyclerView() {
         topicAdapter = TopicAdapter { topic ->
             // Handle topic click - fill input or start chat
-            if (!topic.prompt.isNullOrEmpty()) {
+            if (topic.prompt.isNotEmpty()) {
                 // 如果是键盘模式，填入输入框
                 if (!isKeyboardMode) {
                     toggleInputMode()
@@ -291,35 +300,14 @@ class DialogueActivity : AppCompatActivity() {
     }
 
     private fun showDeleteConfirmDialog(conversationId: String) {
-        AlertDialog.Builder(this)
-            .setTitle("确认删除")
-            .setMessage("确定要删除这个对话吗？")
-            .setPositiveButton("删除") { _, _ ->
-                viewModel.deleteConversation(conversationId)
-                Toast.makeText(this, "已删除", Toast.LENGTH_SHORT).show()
-            }
-            .setNegativeButton("取消", null)
-            .show()
+        DialogHelper.showDeleteConfirmDialog(this) {
+            viewModel.deleteConversation(conversationId)
+        }
     }
     
     private fun showRenameDialog(conversationId: String, currentTitle: String) {
-        val editText = EditText(this).apply {
-            setText(currentTitle)
-            hint = "输入新标题"
-            setPadding(50, 30, 50, 30)
+        DialogHelper.showRenameDialog(this, currentTitle) { newTitle ->
+            viewModel.renameConversation(conversationId, newTitle)
         }
-        
-        AlertDialog.Builder(this)
-            .setTitle("重命名对话")
-            .setView(editText)
-            .setPositiveButton("确定") { _, _ ->
-                val newTitle = editText.text.toString().trim()
-                if (newTitle.isNotEmpty() && newTitle != currentTitle) {
-                    viewModel.renameConversation(conversationId, newTitle)
-                    Toast.makeText(this, "已重命名", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("取消", null)
-            .show()
     }
 }

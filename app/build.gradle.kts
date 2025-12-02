@@ -82,6 +82,9 @@ dependencies {
     implementation("io.noties.markwon:ext-tasklist:4.6.2") {
         exclude(group = "org.jetbrains", module = "annotations-java5")
     }
+    implementation("io.noties.markwon:linkify:4.6.2") {
+        exclude(group = "org.jetbrains", module = "annotations-java5")
+    }
     
     // Prism4j for syntax highlighting
     implementation("io.noties:prism4j:2.0.0") {

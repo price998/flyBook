@@ -28,9 +28,9 @@ interface ConversationDao {
     @Query("UPDATE conversations SET isDeleted = 1 WHERE id = :conversationId")
     suspend fun softDeleteConversation(conversationId: String)
 
-    @Query("SELECT * FROM conversations WHERE isDeleted = 0 ORDER BY updatedAt DESC LIMIT :limit")
+    @Query("SELECT * FROM conversations WHERE isDeleted = 0 ORDER BY isPinned DESC, updatedAt DESC LIMIT :limit")
     suspend fun getRecentConversations(limit: Int): List<ConversationEntity>
 
-    @Query("SELECT * FROM conversations WHERE isDeleted = 0 AND title LIKE '%' || :keyword || '%' ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM conversations WHERE isDeleted = 0 AND title LIKE '%' || :keyword || '%' ORDER BY isPinned DESC, updatedAt DESC")
     suspend fun searchConversations(keyword: String): List<ConversationEntity>
 }

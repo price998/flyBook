@@ -3,10 +3,8 @@ package com.example.myapplication.ui
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
-import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.GravityCompat
 import androidx.lifecycle.ViewModelProvider
@@ -14,22 +12,19 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.R
 import com.example.myapplication.adapter.ChatMessageAdapter
 import com.example.myapplication.adapter.HistoryAdapter
-import com.example.myapplication.adapter.ModelAdapter
 import com.example.myapplication.databinding.ActivityChatBinding
-import com.example.myapplication.databinding.DialogModelSelectorBinding
 import com.example.myapplication.model.ModelRegistry
-import com.example.myapplication.utils.ModelPreferences
+import com.example.myapplication.utils.DialogHelper
 import com.example.myapplication.viewmodel.ChatViewModel
 import com.example.myapplication.viewmodel.DialogueViewModel
 import com.example.myapplication.viewmodel.MessageUpdateEvent
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.bottomsheet.BottomSheetDialog
 import io.noties.markwon.Markwon
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin
 import io.noties.markwon.ext.tables.TablePlugin
 import io.noties.markwon.ext.tasklist.TaskListPlugin
 import io.noties.markwon.html.HtmlPlugin
 import io.noties.markwon.image.ImagesPlugin
+import io.noties.markwon.linkify.LinkifyPlugin
 import kotlin.math.abs
 
 class ChatActivity : AppCompatActivity() {
@@ -37,10 +32,10 @@ class ChatActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_CONVERSATION_ID = "extra_conversation_id"
         const val EXTRA_INITIAL_QUESTION = "extra_initial_question"
+        const val EXTRA_ENABLE_SEARCH = "extra_enable_search"
     }
 
     private var isKeyboardMode = false
-    private var isNetworkSearchEnabled = false
     private var previousMessageCount = 0
 
     private lateinit var chatMessageAdapter: ChatMessageAdapter
@@ -48,8 +43,6 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var dialogueViewModel: DialogueViewModel
     private lateinit var binding: ActivityChatBinding
     private lateinit var historyAdapter: HistoryAdapter
-
-    private val models = ModelRegistry.ALL_MODELS
     
     // Markwon 实例 - Activity 级别单例，注入到 Adapter
     // 暂时不使用代码高亮以提升性能，编译成功后可以添加
@@ -57,6 +50,7 @@ class ChatActivity : AppCompatActivity() {
         Markwon.builder(this)
             .usePlugin(HtmlPlugin.create())
             .usePlugin(ImagesPlugin.create())
+            .usePlugin(LinkifyPlugin.create()) // 自动识别 URL
             .usePlugin(TablePlugin.create(this))
             .usePlugin(StrikethroughPlugin.create())
             .usePlugin(TaskListPlugin.create(this))
@@ -76,6 +70,11 @@ class ChatActivity : AppCompatActivity() {
         val conversationId = intent.getStringExtra(EXTRA_CONVERSATION_ID) ?: ""
         if (conversationId.isNotEmpty()) {
             viewModel.setConversationId(conversationId)
+        }
+        
+        // 检查是否开启联网搜索
+        if (intent.getBooleanExtra(EXTRA_ENABLE_SEARCH, false)) {
+            viewModel.toggleSearch(true)
         }
 
         // Initialize RecyclerView for chat messages
@@ -110,6 +109,15 @@ class ChatActivity : AppCompatActivity() {
             binding.chatStopButton.visibility = if (isGenerating) View.VISIBLE else View.GONE
             binding.chatSendButton.visibility = if (isGenerating) View.GONE else View.VISIBLE
         }
+
+        // 观察联网搜索状态
+        viewModel.isSearchEnabled.observe(this) { isEnabled ->
+            if (isEnabled) {
+                binding.networkSearchLayoutChat.setBackgroundResource(R.drawable.rounded_corner_blue_background)
+            } else {
+                binding.networkSearchLayoutChat.setBackgroundResource(R.drawable.rounded_corner_gray_background)
+            }
+        }
         
         // 观察消息列表变化（用于切换对话时的刷新）
         viewModel.messages.observe(this) { messages ->
@@ -131,8 +139,14 @@ class ChatActivity : AppCompatActivity() {
                 // 列表大小显著变化（可能是切换对话后加载了历史消息）
                 currentCount > 0 && previousMessageCount > 0 && 
                 abs(currentCount - previousMessageCount) > 1 -> {
-                    // 只在这种情况下使用 notifyDataSetChanged
-                    chatMessageAdapter.notifyDataSetChanged()
+                    // 使用更具体的通知方法而不是 notifyDataSetChanged
+                    if (currentCount > previousMessageCount) {
+                        // 添加了消息
+                        chatMessageAdapter.notifyItemRangeInserted(previousMessageCount, currentCount - previousMessageCount)
+                    } else {
+                        // 移除了消息
+                        chatMessageAdapter.notifyItemRangeRemoved(currentCount, previousMessageCount - currentCount)
+                    }
                     // 滚动到底部
                     binding.chatMessagesRecyclerview.post {
                         binding.chatMessagesRecyclerview.scrollToPosition(currentCount - 1)
@@ -208,6 +222,7 @@ class ChatActivity : AppCompatActivity() {
         // 新建对话按钮点击事件 - 跳转到主界面
         binding.newDialogueIcon.setOnClickListener {
             android.util.Log.d("ChatActivity", "New dialogue icon clicked")
+            Toast.makeText(this, "开始新对话", Toast.LENGTH_SHORT).show()
             val intent = Intent(this, DialogueActivity::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             intent.putExtra(DialogueActivity.EXTRA_RESET_INPUT_MODE, true)
@@ -224,6 +239,7 @@ class ChatActivity : AppCompatActivity() {
         // 历史抽屉中的新建对话按钮
         binding.chatNewDialogueButton.setOnClickListener {
             binding.chatDrawerLayout.closeDrawers()
+            Toast.makeText(this, "开始新对话", Toast.LENGTH_SHORT).show()
             val intent = Intent(this, DialogueActivity::class.java)
             intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             intent.putExtra(DialogueActivity.EXTRA_RESET_INPUT_MODE, true)
@@ -240,7 +256,10 @@ class ChatActivity : AppCompatActivity() {
 
         binding.moreOptionsIconChat.setOnClickListener { showModelSelectorDialog() }
 
-        binding.networkSearchLayoutChat.setOnClickListener { toggleNetworkSearchBackground() }
+        binding.networkSearchLayoutChat.setOnClickListener { 
+            val currentState = viewModel.isSearchEnabled.value ?: false
+            viewModel.toggleSearch(!currentState)
+        }
 
         binding.chatSendButton.setOnClickListener { sendMessage() }
         
@@ -270,38 +289,12 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun showModelSelectorDialog() {
-        val dialog = BottomSheetDialog(this)
-        val dialogBinding = DialogModelSelectorBinding.inflate(layoutInflater)
-        dialog.setContentView(dialogBinding.root)
-
-        dialogBinding.modelListRecyclerview.layoutManager = LinearLayoutManager(this)
-
         val currentModelId = viewModel.currentModel.value?.id ?: ModelRegistry.DEFAULT_MODEL.id
-        val adapter =
-                ModelAdapter(models, currentModelId) { modelConfig ->
-                    // 切换模型
-                    viewModel.switchModel(modelConfig)
-                    Toast.makeText(this, "已切换到: ${modelConfig.displayName}", Toast.LENGTH_SHORT)
-                            .show()
-                    dialog.dismiss()
-                }
-
-        dialogBinding.modelListRecyclerview.adapter = adapter
-        dialog.show()
-    }
-
-    private fun toggleNetworkSearchBackground() {
-        isNetworkSearchEnabled = !isNetworkSearchEnabled
-
-        if (isNetworkSearchEnabled) {
-            // 切换为蓝色背景
-            binding.networkSearchLayoutChat.setBackgroundResource(R.drawable.rounded_corner_blue_background)
-        } else {
-            // 切换回灰色背景
-            binding.networkSearchLayoutChat.setBackgroundResource(R.drawable.rounded_corner_gray_background)
+        DialogHelper.showModelSelectorDialog(this, currentModelId) { modelConfig ->
+            viewModel.switchModel(modelConfig)
         }
     }
-    
+
     private fun setupHistoryRecyclerView() {
         historyAdapter = HistoryAdapter(
             mutableListOf(),
@@ -322,24 +315,9 @@ class ChatActivity : AppCompatActivity() {
     }
     
     private fun showRenameDialog(conversationId: String, currentTitle: String) {
-        val editText = EditText(this).apply {
-            setText(currentTitle)
-            hint = "输入新标题"
-            setPadding(50, 30, 50, 30)
+        DialogHelper.showRenameDialog(this, currentTitle) { newTitle ->
+            dialogueViewModel.renameConversation(conversationId, newTitle)
         }
-        
-        AlertDialog.Builder(this)
-            .setTitle("重命名对话")
-            .setView(editText)
-            .setPositiveButton("确定") { _, _ ->
-                val newTitle = editText.text.toString().trim()
-                if (newTitle.isNotEmpty() && newTitle != currentTitle) {
-                    dialogueViewModel.renameConversation(conversationId, newTitle)
-                    Toast.makeText(this, "已重命名", Toast.LENGTH_SHORT).show()
-                }
-            }
-            .setNegativeButton("取消", null)
-            .show()
     }
 
     private fun sendMessage() {

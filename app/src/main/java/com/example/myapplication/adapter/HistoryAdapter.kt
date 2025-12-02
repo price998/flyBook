@@ -2,6 +2,7 @@ package com.example.myapplication.adapter
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.databinding.ItemHistoryBinding
 import com.example.myapplication.model.ChatHistory
@@ -13,9 +14,27 @@ class HistoryAdapter(
 ) : RecyclerView.Adapter<HistoryAdapter.HistoryViewHolder>() {
 
   fun updateData(newList: List<ChatHistory>) {
+    val diffCallback = HistoryDiffCallback(historyList, newList)
+    val diffResult = DiffUtil.calculateDiff(diffCallback)
     historyList.clear()
     historyList.addAll(newList)
-    notifyDataSetChanged()
+    diffResult.dispatchUpdatesTo(this)
+  }
+
+  private class HistoryDiffCallback(
+    private val oldList: List<ChatHistory>,
+    private val newList: List<ChatHistory>
+  ) : DiffUtil.Callback() {
+    override fun getOldListSize(): Int = oldList.size
+    override fun getNewListSize(): Int = newList.size
+    
+    override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+      return oldList[oldItemPosition].id == newList[newItemPosition].id
+    }
+    
+    override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+      return oldList[oldItemPosition] == newList[newItemPosition]
+    }
   }
 
   inner class HistoryViewHolder(private val binding: ItemHistoryBinding) :
@@ -28,7 +47,7 @@ class HistoryAdapter(
           onItemClick(historyList[position])
         }
       }
-      
+
       binding.root.setOnLongClickListener {
         val position = adapterPosition
         if (position != RecyclerView.NO_POSITION) {
@@ -43,11 +62,12 @@ class HistoryAdapter(
     fun bind(history: ChatHistory) {
       binding.historyTitle.text = history.title
       binding.historyPreview.text = history.lastMessage
-      binding.iconPinned.visibility = if (history.isPinned) android.view.View.VISIBLE else android.view.View.GONE
+      binding.iconPinned.visibility =
+              if (history.isPinned) android.view.View.VISIBLE else android.view.View.GONE
       // 置顶项背景色微调
       binding.root.setBackgroundColor(
-          if (history.isPinned) 0x0D000000.toInt() // 浅灰色背景 (5% black)
-          else 0x00000000 // 透明
+              if (history.isPinned) 0x0D000000 // 浅灰色背景 (5% black)
+              else 0x00000000 // 透明
       )
     }
   }
