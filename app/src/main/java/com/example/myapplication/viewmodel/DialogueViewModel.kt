@@ -6,17 +6,13 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.DefaultTopics
-import com.example.myapplication.data.db.AppDatabase
-import com.example.myapplication.data.db.RecommendedTopicEntity
-import kotlinx.coroutines.launch
+import com.example.myapplication.data.RecommendedTopic
 
 
 class DialogueViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val topicDao = AppDatabase.getDatabase(application).recommendedTopicDao()
-
-    private val _topicList = MutableLiveData<List<RecommendedTopicEntity>>()
-    val topicList: LiveData<List<RecommendedTopicEntity>> = _topicList
+    private val _topicList = MutableLiveData<List<RecommendedTopic>>()
+    val topicList: LiveData<List<RecommendedTopic>> = _topicList
 
     private val _isVoiceMode = MutableLiveData(false)
     val isVoiceMode: LiveData<Boolean> = _isVoiceMode
@@ -28,25 +24,11 @@ class DialogueViewModel(application: Application) : AndroidViewModel(application
     val shouldClearInput: LiveData<Boolean> = _shouldClearInput
 
     init {
-        initializeTopics()
         loadTopics()
     }
 
-    private fun initializeTopics() {
-        viewModelScope.launch {
-            if (topicDao.getCount() == 0) {
-                topicDao.insertAll(DefaultTopics.getDefaultTopics())
-                loadTopics()
-            }
-        }
-    }
-
     private fun loadTopics() {
-        viewModelScope.launch {
-            topicDao.getAllTopics().collect { topics ->
-                _topicList.value = topics
-            }
-        }
+        _topicList.value = DefaultTopics.getDefaultTopics()
     }
 
     /**

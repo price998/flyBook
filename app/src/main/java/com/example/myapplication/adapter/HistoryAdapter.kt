@@ -119,8 +119,8 @@ class HistoryAdapter(
       val isSelected = history.id == currentConversationId
       
       val backgroundColor = when {
-          isSelected -> ContextCompat.getColor(context, R.color.sidebar_item_selected_background)
-          history.isPinned -> 0x0D000000.toInt() 
+          history.id == currentConversationId -> Color.parseColor("#E3F2FD") 
+          history.isPinned -> 0x0D000000 
           else -> Color.TRANSPARENT
       }
       binding.root.setBackgroundColor(backgroundColor)

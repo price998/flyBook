@@ -13,38 +13,8 @@ import com.example.myapplication.model.ModelConfig
 import com.example.myapplication.model.ModelRegistry
 import com.google.android.material.bottomsheet.BottomSheetDialog
 
-/**
- * 对话框工具类
- * 提供通用的对话框创建方法，避免代码重复
- */
+/** 对话框工具类 提供通用的对话框创建方法，避免代码重复 */
 object DialogHelper {
-
-    /**
-     * 显示模型选择对话框
-     * @param context 上下文
-     * @param currentModelId 当前选中的模型ID
-     * @param onModelSelected 模型选择回调
-     */
-    fun showModelSelectorDialog(
-        context: Context,
-        currentModelId: String,
-        onModelSelected: (ModelConfig) -> Unit
-    ) {
-        val dialog = BottomSheetDialog(context)
-        val dialogBinding = DialogModelSelectorBinding.inflate(LayoutInflater.from(context))
-        dialog.setContentView(dialogBinding.root)
-
-        dialogBinding.modelListRecyclerview.layoutManager = LinearLayoutManager(context)
-
-        val adapter = ModelAdapter(ModelRegistry.ALL_MODELS, currentModelId) { modelConfig ->
-            onModelSelected(modelConfig)
-            Toast.makeText(context, "已切换到: ${modelConfig.displayName}", Toast.LENGTH_SHORT).show()
-            dialog.dismiss()
-        }
-
-        dialogBinding.modelListRecyclerview.adapter = adapter
-        dialog.show()
-    }
 
     /**
      * 显示重命名对话框

@@ -4,15 +4,15 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
-import com.example.myapplication.data.db.RecommendedTopicEntity
+import com.example.myapplication.data.RecommendedTopic
 import com.example.myapplication.databinding.ItemTopicBinding
 
 class TopicAdapter(
-        private var topics: List<RecommendedTopicEntity> = emptyList(),
-        private val onItemClick: (RecommendedTopicEntity) -> Unit
+        private var topics: List<RecommendedTopic> = emptyList(),
+        private val onItemClick: (RecommendedTopic) -> Unit
 ) : RecyclerView.Adapter<TopicAdapter.TopicViewHolder>() {
 
-    fun updateData(newTopics: List<RecommendedTopicEntity>) {
+    fun updateData(newTopics: List<RecommendedTopic>) {
         val diffCallback = TopicDiffCallback(topics, newTopics)
         val diffResult = DiffUtil.calculateDiff(diffCallback)
         topics = newTopics
@@ -20,14 +20,14 @@ class TopicAdapter(
     }
 
     private class TopicDiffCallback(
-        private val oldList: List<RecommendedTopicEntity>,
-        private val newList: List<RecommendedTopicEntity>
+        private val oldList: List<RecommendedTopic>,
+        private val newList: List<RecommendedTopic>
     ) : DiffUtil.Callback() {
         override fun getOldListSize(): Int = oldList.size
         override fun getNewListSize(): Int = newList.size
 
         override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-            return oldList[oldItemPosition].id == newList[newItemPosition].id
+            return oldList[oldItemPosition].title == newList[newItemPosition].title
         }
 
         override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
@@ -48,7 +48,7 @@ class TopicAdapter(
             }
         }
 
-        fun bind(topic: RecommendedTopicEntity) {
+        fun bind(topic: RecommendedTopic) {
             binding.topicTitle.text = topic.title
         }
     }
