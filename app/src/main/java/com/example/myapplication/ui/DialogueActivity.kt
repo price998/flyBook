@@ -192,12 +192,10 @@ class DialogueActivity : AppCompatActivity() {
         // 绑定侧边栏按钮点击事件
         binding.btnNewChat.setOnClickListener {
             binding.drawerLayout.closeDrawer(GravityCompat.END)
-            // 创建新对话
-            historyViewModel.createNewConversation("新对话") { _ ->
-                Toast.makeText(this, "已创建新对话", Toast.LENGTH_SHORT).show()
-                binding.etInput.text.clear()
-                updateSidebarSelection(isNewChat = true)
-            }
+            // 重置界面
+            Toast.makeText(this, "已创建新对话", Toast.LENGTH_SHORT).show()
+            binding.etInput.text.clear()
+            updateSidebarSelection(isNewChat = true)
         }
         
         binding.btnKnowledgeBase.setOnClickListener {
