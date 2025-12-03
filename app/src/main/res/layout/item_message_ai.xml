@@ -52,55 +52,76 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:visibility="gone">
-        
+
+        <!-- 分享 -->
         <LinearLayout
+            android:id="@+id/btn_share"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:foreground="?attr/selectableItemBackgroundBorderless"
+            android:paddingVertical="4dp"
+            android:paddingEnd="4dp">
+
             <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:src="@drawable/ic_share"/>
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:src="@drawable/ic_share" />
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="分享"
                 android:textSize="12sp"
                 android:textColor="@color/text_secondary"
-                android:layout_marginStart="4dp"/>
+                android:layout_marginStart="4dp" />
         </LinearLayout>
-        
-        <Space android:layout_width="24dp" android:layout_height="wrap_content"/>
-        
+
+        <Space
+            android:layout_width="24dp"
+            android:layout_height="wrap_content" />
+
+        <!-- 复制 -->
         <ImageView
             android:id="@+id/btn_copy"
-            android:layout_width="18dp"
-            android:layout_height="18dp"
-            android:src="@drawable/ic_copy"/>
-            
-        <Space android:layout_width="24dp" android:layout_height="wrap_content"/>
-        
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_copy" />
+
+        <Space
+            android:layout_width="24dp"
+            android:layout_height="wrap_content" />
+
+        <!-- 点赞 -->
         <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
-            android:src="@drawable/ic_thumb_up"/>
-            
-        <Space android:layout_width="24dp" android:layout_height="wrap_content"/>
-        
+            android:id="@+id/btn_like"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_thumb_up" />
+
+        <Space
+            android:layout_width="24dp"
+            android:layout_height="wrap_content" />
+
+        <!-- 点踩 -->
         <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
-            android:src="@drawable/ic_thumb_down"/>
-            
-        <Space android:layout_width="24dp" android:layout_height="wrap_content"/>
-        
+            android:id="@+id/btn_dislike"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_thumb_down" />
+
+        <Space
+            android:layout_width="24dp"
+            android:layout_height="wrap_content" />
+
+        <!-- 重新加载 -->
         <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
-            android:src="@drawable/ic_refresh"/>
+            android:id="@+id/btn_reload"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/ic_refresh" />
 
     </LinearLayout>
-
 </LinearLayout>
 

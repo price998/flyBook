@@ -73,4 +73,5 @@
     <string name="menu_create_new_chat">创建新聊天</string>
     <string name="menu_my_knowledge_base">我的知识库</string>
     <string name="menu_history_dialogue">历史对话</string>
+    <string name="close">close</string>
 </resources>
