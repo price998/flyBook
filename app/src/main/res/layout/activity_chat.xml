@@ -203,35 +203,40 @@
                     android:layout_marginEnd="8dp"
                     android:background="#8F959E"
                     app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toStartOf="@+id/iv_send"
+                    app:layout_constraintEnd_toStartOf="@+id/layout_send_stop"
                     app:layout_constraintTop_toTopOf="parent" />
 
-                <!-- Send Button -->
-                <ImageView
-                    android:id="@+id/iv_send"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                <!-- Send/Stop Button Container -->
+                <FrameLayout
+                    android:id="@+id/layout_send_stop"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
-                    android:src="@drawable/ic_send"
-                    app:tint="#8F959E"
+                    android:layout_marginEnd="12dp"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    android:contentDescription="@string/content_description_send" />
-                    
-                <!-- Stop Button (Replaces Send Button when generating) -->
-                <ImageView
-                    android:id="@+id/iv_stop"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:layout_marginStart="12dp"
-                    android:src="@drawable/ic_media_pause"
-                    app:tint="#8F959E"
-                    android:visibility="gone"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    android:contentDescription="@string/content_description_stop" />
+                    app:layout_constraintTop_toTopOf="parent">
+
+                    <ImageView
+                        android:id="@+id/iv_send"
+                        android:layout_width="28dp"
+                        android:layout_height="28dp"
+                        android:src="@drawable/ic_send"
+                        app:tint="#8F959E"
+                        android:layout_gravity="center"
+                        android:contentDescription="@string/content_description_send" />
+
+                    <ImageView
+                        android:id="@+id/iv_stop"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:padding="2dp"
+                        android:src="@drawable/ic_media_pause"
+                        app:tint="#000000"
+                        android:visibility="gone"
+                        android:layout_gravity="center"
+                        android:contentDescription="@string/content_description_stop" />
+                </FrameLayout>
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 

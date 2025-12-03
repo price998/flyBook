@@ -155,10 +155,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         ModelPreferences.saveSelectedModel(getApplication(), modelConfig.id)
     }
 
+    private var generationJob: kotlinx.coroutines.Job? = null
+
     /** 停止生成 */
     fun stopGeneration() {
         Log.d(TAG, "停止生成请求")
         stopGenerationFlag = true
+        generationJob?.cancel() // 取消协程，立即停止
     }
 
     fun sendMessage(content: String) {
@@ -194,9 +197,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val aiMsgIndex = currentList.size - 1
         _messageUpdate.value = MessageUpdateEvent.ItemInserted(aiMsgIndex)
 
-        viewModelScope.launch {
+        generationJob = viewModelScope.launch {
             _isGenerating.value = true
-
             var searchResultForDisplay = ""
 
             // --- 联网搜索逻辑 ---
@@ -256,7 +258,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     // 检查是否需要停止
                     if (stopGenerationFlag) {
                         Log.d(TAG, "检测到停止标志，终止生成")
-                        return@collect
+                        throw java.util.concurrent.CancellationException("用户停止生成")
                     }
                     val deltaContent = delta.content
                     val reasoning = delta.reasoningContent
@@ -309,21 +311,42 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 // 保存 AI 消息到数据库
                 repository.saveMessage(conversationId, completeMsg)
             } catch (e: Exception) {
-                // 处理错误，标记为完成状态
-                if (!stopGenerationFlag) {
-                    fullResponseBuilder.append("\n[Error: ${e.message}]")
+                // 处理错误或取消，标记为完成状态
+                if (e is java.util.concurrent.CancellationException || stopGenerationFlag) {
+                     Log.d(TAG, "生成已取消")
+                } else {
+                     fullResponseBuilder.append("\n[Error: ${e.message}]")
+                     Log.e(TAG, "流式输出错误", e)
                 }
+                
                 currentList[aiMsgIndex] =
                         ChatMessage(
                                 content = fullResponseBuilder.toString(),
                                 isUser = false,
-                                isComplete = true
+                                isComplete = true,
+                                reasoningContent = reasoningBuilder.toString().takeIf { it.isNotEmpty() }
                         )
                 _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
-                Log.e(TAG, "流式输出错误", e)
+                
+                // 即使取消或出错，也保存已生成的内容
+                val partialMsg = ChatMessage(
+                    content = fullResponseBuilder.toString(),
+                    isUser = false,
+                    isComplete = true,
+                    reasoningContent = reasoningBuilder.toString().takeIf { it.isNotEmpty() }
+                )
+                // 启动新协程异步保存，使能够立即响应停止状态
+                viewModelScope.launch {
+                    try {
+                        repository.saveMessage(conversationId, partialMsg)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error saving partial message", e)
+                    }
+                }
             } finally {
                 _isGenerating.value = false
                 stopGenerationFlag = false
+                generationJob = null
             }
         }
     }

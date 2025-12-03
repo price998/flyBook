@@ -277,12 +277,19 @@ class DialogueActivity : AppCompatActivity() {
         // 新对话按钮：创建空对话，清空输入框
         binding.btnNewChat.setOnClickListener {
             binding.drawerLayout.closeDrawer(GravityCompat.END)
+<<<<<<< HEAD
             // 创建新对话
             historyViewModel.createNewConversation("新对话") { _ ->
                 Toast.makeText(this, "已创建新对话", Toast.LENGTH_SHORT).show()
                 binding.etInput.text.clear()
                 updateSidebarSelection(isNewChat = true) // 高亮选中状态
             }
+=======
+            // 重置界面
+            Toast.makeText(this, "已创建新对话", Toast.LENGTH_SHORT).show()
+            binding.etInput.text.clear()
+            updateSidebarSelection(isNewChat = true)
+>>>>>>> 3500944dac6655f085155393802067536b1aa96a
         }
         //知识库按钮：仅Toast提示（待实现）
         binding.btnKnowledgeBase.setOnClickListener {
