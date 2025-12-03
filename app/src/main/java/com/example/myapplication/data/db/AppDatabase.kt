@@ -6,14 +6,14 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [MessageEntity::class, ConversationEntity::class, UserEntity::class, AttachmentEntity::class],
+    entities = [MessageEntity::class, ConversationEntity::class, AccountEntity::class, AttachmentEntity::class],
     version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun conversationDao(): ConversationDao
-    abstract fun userDao(): UserDao
+    abstract fun accountDao(): AccountDao
     abstract fun attachmentDao(): AttachmentDao
 
     companion object {

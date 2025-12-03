@@ -64,7 +64,7 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var tilUsername: TextInputLayout
 
     /**
-     * 密码输入框的外层容器
+     * 密码输入框��外层容器
      */
     private lateinit var tilPassword: TextInputLayout
 
@@ -565,4 +565,3 @@ class LoginActivity : AppCompatActivity() {
         updateUIMode()
     }
 }
-
