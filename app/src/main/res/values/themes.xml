@@ -6,4 +6,14 @@
     </style>
 
     <style name="Theme.MyApplication" parent="Base.Theme.MyApplication" />
+
+    <!-- 圆角对话框样式 -->
+    <style name="RoundedDialogTheme" parent="Theme.AppCompat.Light.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/bg_dialog_rounded</item>
+        <!-- 强制减小最小宽度，使其更紧凑 -->
+        <item name="android:windowMinWidthMajor">220dp</item>
+        <item name="android:windowMinWidthMinor">220dp</item>
+        <!-- 尝试移除默认的最小宽度限制 -->
+        <item name="android:minWidth">0dp</item>
+    </style>
 </resources>

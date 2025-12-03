@@ -31,6 +31,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // 当前对话ID
     private var conversationId: String = ""
+    val currentConversationId: String get() = conversationId
 
     private val _messages = MutableLiveData(mutableListOf<ChatMessage>())
     val messages: LiveData<MutableList<ChatMessage>> = _messages

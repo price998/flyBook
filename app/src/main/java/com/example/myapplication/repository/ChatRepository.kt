@@ -18,7 +18,7 @@ class ChatRepository(
     }
 
     // ==================== 对话管理 ====================
-    
+    //创建新对话
     suspend fun createConversation(title: String): String {
         val conversationId = java.util.UUID.randomUUID().toString()
         val now = System.currentTimeMillis()
@@ -33,7 +33,7 @@ class ChatRepository(
         )
         return conversationId
     }
-
+    //更新对话标题
     suspend fun updateConversationTitle(conversationId: String, title: String) {
         conversationDao?.getConversationById(conversationId)?.let { conversation ->
             conversationDao.updateConversation(
@@ -44,7 +44,7 @@ class ChatRepository(
             )
         }
     }
-
+    //自动更新对话状态
     private suspend fun updateConversationTimestamp(conversationId: String, lastMessage: String? = null) {
         conversationDao?.getConversationById(conversationId)?.let { conversation ->
             conversationDao.updateConversation(
@@ -58,7 +58,7 @@ class ChatRepository(
     }
 
     // ==================== 消息管理 ====================
-
+    //保存消息到本地：ChatMessage模型转为数据库MessageEntity实体
     suspend fun saveMessage(conversationId: String, message: ChatMessage) {
         messageDao?.let { dao ->
             val entity = MessageEntity(
@@ -80,7 +80,7 @@ class ChatRepository(
             updateConversationTimestamp(conversationId, preview)
         }
     }
-
+    //查询最新消息：初始化聊天界面
     suspend fun getLatestMessages(conversationId: String, limit: Int = 20): List<ChatMessage> {
         return messageDao?.getLatestMessages(conversationId, limit)?.map { entity ->
             ChatMessage(
@@ -92,7 +92,7 @@ class ChatRepository(
             )
         } ?: emptyList()
     }
-
+    //查询历史消息（分页）：分页加载历史消息
     suspend fun getMessagesBefore(conversationId: String, timestamp: Long, limit: Int = 20): List<ChatMessage> {
         return messageDao?.getMessagesBefore(conversationId, timestamp, limit)?.map { entity ->
             ChatMessage(

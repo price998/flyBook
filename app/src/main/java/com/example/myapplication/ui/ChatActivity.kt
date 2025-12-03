@@ -11,12 +11,15 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.DividerItemDecoration
+import android.graphics.drawable.ColorDrawable
 import com.example.myapplication.R
 import com.example.myapplication.adapter.ChatMessageAdapter
 import com.example.myapplication.adapter.HistoryAdapter
 import com.example.myapplication.adapter.ModelAdapter
 import com.example.myapplication.databinding.ActivityChatBinding
 import com.example.myapplication.databinding.DialogModelSelectorBinding
+import com.example.myapplication.databinding.ItemDialogMenuBinding
 import com.example.myapplication.model.ModelRegistry
 import com.example.myapplication.utils.DialogHelper
 import com.example.myapplication.viewmodel.ChatViewModel
@@ -294,7 +297,8 @@ class ChatActivity : AppCompatActivity() {
         // 适配侧边栏
          ViewCompat.setOnApplyWindowInsetsListener(binding.navDrawerLayout) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(v.paddingLeft, systemBars.top + 24, v.paddingRight, v.paddingBottom)
+            // XML中Header已有paddingTop=32dp，这里设为0以避免双重间距
+            v.setPadding(v.paddingLeft, 0, v.paddingRight, v.paddingBottom)
             insets
         }
     }
@@ -371,13 +375,86 @@ class ChatActivity : AppCompatActivity() {
                 updateSidebarSelection(isNewChat = false, isKnowledgeBase = false)
             },
             onItemLongClick = { history ->
-                // Handle long click - 显示重命名对话框
-                showRenameDialog(history.id, history.title)
+                // 长按显示菜单：置顶/取消置顶、重命名、删除
+                val items = listOf(
+                    mapOf("text" to if (history.isPinned) "取消置顶" else "置顶会话", "icon" to R.drawable.icon_pin),
+                    mapOf("text" to "重命名会话标题", "icon" to R.drawable.icon_edit),
+                    mapOf("text" to "删除会话", "icon" to R.drawable.icon_delete)
+                )
+                
+                val adapter = object : android.widget.ArrayAdapter<Map<String, Any>>(
+                    this,
+                    R.layout.item_dialog_menu,
+                    items
+                ) {
+                    override fun getView(position: Int, convertView: View?, parent: android.view.ViewGroup): View {
+                        val binding: ItemDialogMenuBinding
+                        val view: View
+
+                        if (convertView == null) {
+                            binding = ItemDialogMenuBinding.inflate(layoutInflater, parent, false)
+                            view = binding.root
+                            view.tag = binding
+                        } else {
+                            view = convertView
+                            binding = view.tag as ItemDialogMenuBinding
+                        }
+                        
+                        val item = getItem(position) ?: return view
+                        val iconRes = item["icon"] as Int
+                        val text = item["text"] as String
+                        
+                        binding.ivMenuIcon.setImageResource(iconRes)
+                        binding.tvMenuText.text = text
+                        
+                        // 设置红色样式给删除项
+                        if (text == "删除会话") {
+                            binding.tvMenuText.setTextColor(android.graphics.Color.RED)
+                            binding.ivMenuIcon.setColorFilter(android.graphics.Color.RED)
+                        } else {
+                            binding.tvMenuText.setTextColor(android.graphics.Color.BLACK)
+                            binding.ivMenuIcon.setColorFilter(android.graphics.Color.BLACK)
+                        }
+                        
+                        return view
+                    }
+                }
+
+                androidx.appcompat.app.AlertDialog.Builder(this, R.style.RoundedDialogTheme)
+                    .setAdapter(adapter) { _, which ->
+                        when (which) {
+                            0 -> {
+                                // 切换置顶状态
+                                historyViewModel.togglePin(history.id, history.isPinned)
+                            }
+                            1 -> {
+                                // 重命名
+                                showRenameDialog(history.id, history.title)
+                            }
+                            2 -> {
+                                // 确认删除
+                                DialogHelper.showDeleteConfirmDialog(this) {
+                                    historyViewModel.deleteConversation(history.id)
+                                    // 如果删除的是当前会话，退出或清空
+                                    if (history.id == viewModel.currentConversationId) {
+                                        finish()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .show()
             }
         )
         // 更新为新的RecyclerView ID
-        binding.historyRecyclerview.layoutManager = LinearLayoutManager(this)
-        binding.historyRecyclerview.adapter = historyAdapter
+        binding.historyRecyclerview.apply {
+            layoutManager = LinearLayoutManager(this@ChatActivity)
+            adapter = historyAdapter
+            // 添加分割线
+            val divider = DividerItemDecoration(this@ChatActivity, DividerItemDecoration.VERTICAL)
+            divider.setDrawable(ColorDrawable(android.graphics.Color.parseColor("#EEEEEE")))
+            addItemDecoration(divider)
+        }
     }
     
     private fun updateSidebarSelection(isNewChat: Boolean = false, isKnowledgeBase: Boolean = false) {

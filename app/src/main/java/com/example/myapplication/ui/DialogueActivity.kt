@@ -11,6 +11,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.DividerItemDecoration
+import android.graphics.drawable.ColorDrawable
 import com.example.myapplication.R
 import com.example.myapplication.adapter.HistoryAdapter
 import com.example.myapplication.adapter.ModelAdapter
@@ -18,6 +20,7 @@ import com.example.myapplication.adapter.TopicAdapter
 import com.example.myapplication.databinding.ActivityDialogueBinding
 import com.example.myapplication.databinding.DialogModelSelectorBinding
 import com.example.myapplication.model.ModelRegistry
+import com.example.myapplication.utils.DialogHelper
 import com.example.myapplication.utils.ModelPreferences
 import com.example.myapplication.viewmodel.DialogueViewModel
 import com.example.myapplication.viewmodel.HistoryViewModel
@@ -29,6 +32,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import com.example.myapplication.databinding.ItemDialogMenuBinding
 import androidx.lifecycle.lifecycleScope
 
 class DialogueActivity : AppCompatActivity() {
@@ -47,7 +51,7 @@ class DialogueActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_RESET_INPUT_MODE = "extra_reset_input_mode"
     }
-    
+    //页面基础配置与系统适配
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -102,7 +106,13 @@ class DialogueActivity : AppCompatActivity() {
         // 适配侧边栏
          ViewCompat.setOnApplyWindowInsetsListener(binding.navDrawerLayout) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(v.paddingLeft, systemBars.top + 24, v.paddingRight, v.paddingBottom)
+            // 移除额外的 24dp，避免顶部空白过大。XML 中 Header 已有 Padding。
+            // 如果 Header 的 paddingTop 是为了避让状态栏，这里可以设为 0，或者让 XML 去掉 paddingTop 由这里设为 systemBars.top
+            // 方案：这里设为 0，完全由 XML 控制布局；或者这里设为 systemBars.top，XML 只保留内容间距。
+            // 鉴于 XML 里写了 48dp (足够大)，这里先不叠加 systemBars.top，防止双倍间距。
+            // 修正：侧边栏通常延伸到状态栏后面。如果 fitsSystemWindows=false，我们需要自己处理。
+            // 假设 XML 的 48dp 是设计高度，包含了状态栏预留。
+            v.setPadding(v.paddingLeft, 0, v.paddingRight, v.paddingBottom)
             insets
         }
     }
@@ -111,6 +121,12 @@ class DialogueActivity : AppCompatActivity() {
         // 点击菜单按钮：显示侧边栏
         binding.ivMenu.setOnClickListener {
             binding.drawerLayout.openDrawer(GravityCompat.END)
+        }
+
+        // 侧边栏搜索按钮
+        binding.btnSidebarSearch.setOnClickListener {
+            binding.drawerLayout.closeDrawer(GravityCompat.END)
+            startActivity(Intent(this, SearchActivity::class.java))
         }
 
         // 点击联网搜索按钮：切换选中状态
@@ -178,28 +194,97 @@ class DialogueActivity : AppCompatActivity() {
                 intent.putExtra(ChatActivity.EXTRA_CONVERSATION_ID, history.id)
                 startActivity(intent)
             },
-            onItemLongClick = { _ ->
-                 // 长按处理逻辑，比如删除或置顶
-                 // TODO: 实现长按功能（删除、置顶等）
+            onItemLongClick = { history ->
+                // 长按显示菜单：置顶/取消置顶、重命名、删除
+                val items = listOf(
+                    mapOf("text" to if (history.isPinned) "取消置顶" else "置顶会话", "icon" to R.drawable.icon_pin),
+                    mapOf("text" to "重命名会话标题", "icon" to R.drawable.icon_edit),
+                    mapOf("text" to "删除会话", "icon" to R.drawable.icon_delete)
+                )
+                
+                val adapter = object : android.widget.ArrayAdapter<Map<String, Any>>(
+                    this,
+                    R.layout.item_dialog_menu,
+                    items
+                ) {
+                    override fun getView(position: Int, convertView: View?, parent: android.view.ViewGroup): View {
+                        val binding: ItemDialogMenuBinding
+                        val view: View
+
+                        if (convertView == null) {
+                            binding = ItemDialogMenuBinding.inflate(layoutInflater, parent, false)
+                            view = binding.root
+                            view.tag = binding
+                        } else {
+                            view = convertView
+                            binding = view.tag as ItemDialogMenuBinding
+                        }
+                        
+                        val item = getItem(position) ?: return view
+                        val iconRes = item["icon"] as Int
+                        val text = item["text"] as String
+                        
+                        binding.ivMenuIcon.setImageResource(iconRes)
+                        binding.tvMenuText.text = text
+                        
+                        // 设置红色样式给删除项
+                        if (text == "删除会话") {
+                            binding.tvMenuText.setTextColor(android.graphics.Color.RED)
+                            binding.ivMenuIcon.setColorFilter(android.graphics.Color.RED)
+                        } else {
+                            binding.tvMenuText.setTextColor(android.graphics.Color.BLACK)
+                            binding.ivMenuIcon.setColorFilter(android.graphics.Color.BLACK)
+                        }
+                        
+                        return view
+                    }
+                }
+
+                androidx.appcompat.app.AlertDialog.Builder(this, R.style.RoundedDialogTheme)
+                    .setAdapter(adapter) { _, which ->
+                        when (which) {
+                            0 -> {
+                                // 切换置顶状态
+                                historyViewModel.togglePin(history.id, history.isPinned)
+                            }
+                            1 -> {
+                                // 重命名
+                                DialogHelper.showRenameDialog(this, history.title) { newTitle ->
+                                    historyViewModel.renameConversation(history.id, newTitle)
+                                }
+                            }
+                            2 -> {
+                                // 确认删除
+                                DialogHelper.showDeleteConfirmDialog(this) {
+                                    historyViewModel.deleteConversation(history.id)
+                                }
+                            }
+                        }
+                    }
+                    .show()
             }
         )
         
         binding.historyRecyclerview.apply {
             layoutManager = LinearLayoutManager(this@DialogueActivity)
             adapter = historyAdapter
+            // 添加分割线
+            val divider = DividerItemDecoration(this@DialogueActivity, DividerItemDecoration.VERTICAL)
+            divider.setDrawable(ColorDrawable(android.graphics.Color.parseColor("#EEEEEE")))
+            addItemDecoration(divider)
         }
 
-        // 绑定侧边栏按钮点击事件
+        // 新对话按钮：创建空对话，清空输入框
         binding.btnNewChat.setOnClickListener {
             binding.drawerLayout.closeDrawer(GravityCompat.END)
             // 创建新对话
             historyViewModel.createNewConversation("新对话") { _ ->
                 Toast.makeText(this, "已创建新对话", Toast.LENGTH_SHORT).show()
                 binding.etInput.text.clear()
-                updateSidebarSelection(isNewChat = true)
+                updateSidebarSelection(isNewChat = true) // 高亮选中状态
             }
         }
-        
+        //知识库按钮：仅Toast提示（待实现）
         binding.btnKnowledgeBase.setOnClickListener {
             binding.drawerLayout.closeDrawer(GravityCompat.END)
             Toast.makeText(this, "我的知识库", Toast.LENGTH_SHORT).show()
@@ -271,10 +356,7 @@ class DialogueActivity : AppCompatActivity() {
     }
     
     private fun updateSidebarSelection(isNewChat: Boolean = false, isKnowledgeBase: Boolean = false) {
-        val highlightColor = android.graphics.Color.parseColor("#E3F2FD")
-        binding.btnNewChat.setBackgroundColor(if (isNewChat) highlightColor else android.graphics.Color.TRANSPARENT)
-        binding.btnKnowledgeBase.setBackgroundColor(if (isKnowledgeBase) highlightColor else android.graphics.Color.TRANSPARENT)
-        
+        // 清除历史列表选中状态
         if (isNewChat || isKnowledgeBase) {
              historyAdapter.setSelectedId(null)
         }
@@ -303,9 +385,9 @@ class DialogueActivity : AppCompatActivity() {
         dialogBinding.modelListRecyclerview.adapter = adapter
         dialog.show()
     }
-
+    //观察 ViewModel 的 LiveData，实现 “数据变化自动更新 UI”
     private fun observeViewModel() {
-        // 观察历史记录变化并更新RecyclerView
+        // 历史会话列表变化：更新HistoryAdapter
         historyViewModel.historyList.observe(this) { history ->
             historyAdapter.updateData(history)
         }

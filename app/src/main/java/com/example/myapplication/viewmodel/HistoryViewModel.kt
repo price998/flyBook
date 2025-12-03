@@ -18,13 +18,13 @@ import kotlinx.coroutines.withContext
  * 在 DialogueActivity 和 ChatActivity 之间共享
  */
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
-
+    // 1. 依赖注入：初始化数据层仓库（Repository）
     private val repository = HistoryRepository(application)
     private val chatRepository = ChatRepository(
         AppDatabase.getDatabase(application).messageDao(),
         AppDatabase.getDatabase(application).conversationDao()
     )
-
+    // 2. 数据容器：MutableLiveData（内部可修改）+ LiveData（外部仅可观察），保证数据单向流动
     private val _historyList = MutableLiveData<List<ChatHistory>>()
     val historyList: LiveData<List<ChatHistory>> = _historyList
 
@@ -32,7 +32,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     private val _errorMessage = MutableLiveData<String?>()
     @Suppress("unused")
     val errorMessage: LiveData<String?> = _errorMessage
-
+    // 3. 初始化自动加载历史列表
     init {
         loadHistory()
     }
@@ -116,7 +116,7 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
-     * 搜索历史对话（预留功能）
+     * 搜索历史对话
      */
     @Suppress("unused")
     fun search(query: String) {

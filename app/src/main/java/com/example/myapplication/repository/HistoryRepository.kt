@@ -15,7 +15,7 @@ class HistoryRepository(context: Context) {
     // 从数据库获取历史对话列表
     suspend fun getHistoryList(): List<ChatHistory> = withContext(Dispatchers.IO) {
         val conversations = conversationDao.getRecentConversations(50)
-        // 去重：按 id 去重，保留第一个（最新的）
+        // 避免列表出现重复会话：按 id 去重，保留第一个（最新的）
         val uniqueConversations = conversations.distinctBy { it.id }
         mapEntitiesToHistory(uniqueConversations)
     }
@@ -23,7 +23,6 @@ class HistoryRepository(context: Context) {
     // 搜索对话
     suspend fun searchHistory(keyword: String): List<ChatHistory> = withContext(Dispatchers.IO) {
         val conversations = conversationDao.searchConversations(keyword)
-        // 去重：按 id 去重，保留第一个（最新的）
         val uniqueConversations = conversations.distinctBy { it.id }
         mapEntitiesToHistory(uniqueConversations)
     }
@@ -40,6 +39,7 @@ class HistoryRepository(context: Context) {
         conversationDao.softDeleteConversation(conversationId)
     }
 
+    //实体转业务模型
     private fun mapEntitiesToHistory(conversations: List<com.example.myapplication.data.db.ConversationEntity>): List<ChatHistory> {
         return conversations.map { entity ->
             ChatHistory(
