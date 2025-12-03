@@ -45,12 +45,13 @@ class ChatRepository(
         }
     }
 
-    private suspend fun updateConversationTimestamp(conversationId: String) {
+    private suspend fun updateConversationTimestamp(conversationId: String, lastMessage: String? = null) {
         conversationDao?.getConversationById(conversationId)?.let { conversation ->
             conversationDao.updateConversation(
                 conversation.copy(
                     updatedAt = System.currentTimeMillis(),
-                    messageCount = conversation.messageCount + 1
+                    messageCount = conversation.messageCount + 1,
+                    lastMessagePreview = lastMessage ?: conversation.lastMessagePreview
                 )
             )
         }
@@ -69,7 +70,14 @@ class ChatRepository(
                 isComplete = message.isComplete
             )
             dao.insertMessage(entity)
-            updateConversationTimestamp(conversationId)
+            
+            // 截取预览内容（防止过长）
+            val preview = if (message.content.length > 50) {
+                message.content.substring(0, 50) + "..."
+            } else {
+                message.content
+            }
+            updateConversationTimestamp(conversationId, preview)
         }
     }
 

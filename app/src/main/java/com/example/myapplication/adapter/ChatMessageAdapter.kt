@@ -88,6 +88,8 @@ class ChatMessageAdapter(
       // 如果有 payload，只更新内容
       if (payloads.isNotEmpty() && payloads.contains(PAYLOAD_CONTENT_UPDATE)) {
         holder.bind(message, message.isComplete, markwon)
+        // ✅ 修复：即使是增量更新，也需要设置复制按钮
+        holder.setupCopyButton(message, holder.itemView.context)
         return
       }
 

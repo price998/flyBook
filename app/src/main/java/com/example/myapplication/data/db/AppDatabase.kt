@@ -5,10 +5,17 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [MessageEntity::class, ConversationEntity::class], version = 2, exportSchema = false)
+@Database(
+    entities = [MessageEntity::class, ConversationEntity::class, UserEntity::class, RecommendedTopicEntity::class, AttachmentEntity::class],
+    version = 10,
+    exportSchema = false
+)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun conversationDao(): ConversationDao
+    abstract fun userDao(): UserDao
+    abstract fun recommendedTopicDao(): RecommendedTopicDao
+    abstract fun attachmentDao(): AttachmentDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null

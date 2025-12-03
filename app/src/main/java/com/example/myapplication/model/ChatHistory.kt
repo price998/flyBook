@@ -7,5 +7,6 @@ data class ChatHistory(
     val title: String,
     val lastMessage: String,
     val timestamp: Date,
-    val messageCount: Int = 0
+    val messageCount: Int = 0,
+    val isPinned: Boolean = false
 )

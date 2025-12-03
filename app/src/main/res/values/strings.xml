@@ -25,6 +25,15 @@
     <string name="model_claude">Claude</string>
     <string name="model_default">默认模型</string>
     <string name="current_model">当前模型</string>
+    
+    <string name="menu_new_chat">创建新聊天</string>
+    <string name="menu_knowledge">我的知识库</string>
+    <string name="menu_history">历史对话</string>
+    <string name="input_hint">请输入你的问题</string>
+    <string name="mic_hint">按住 说话</string>
+    <string name="main_title">飞书知识问答</string>
+    <string name="main_subtitle">整合你可访问的 3480814个知识点，AI 搜索生成回答</string>
+    <string name="web_search_text">联网搜索</string>
 
     <!-- Chat Page Strings -->
     <string name="user_message_sample">简单介绍一下自己</string>
@@ -34,7 +43,7 @@
     <string name="data_privacy_info">AI 基于你有限的资料生成，数据保密你可见</string>
     <string name="answer_source_info">该答案基于通用知识或互联网信息生成，上传更多自有资料，可生成专属答案</string>
     <string name="upload_file">上传文件</string>
-    <string name="chat_input_hint">问个问题，或用知识写点内容</string>
+    <string name="chat_input_hint">请输入你的问题</string>
     <string name="content_description_share_icon">分享图标</string>
     <string name="content_description_copy_icon">复制图标</string>
     <string name="content_description_collect_icon">收藏图标</string>
@@ -49,4 +58,19 @@
     <string name="history_dialogue">历史对话</string>
     <string name="content_description_knowledge_base">知识库</string>
     <string name="content_description_expand">展开</string>
+    
+    <!-- Content Descriptions -->
+    <string name="content_description_menu_button">菜单按钮</string>
+    <string name="content_description_new_chat">新对话</string>
+    <string name="content_description_web_search_icon">联网搜索图标</string>
+    <string name="content_description_more_model_options">更多模型选项</string>
+    <string name="content_description_voice">语音输入</string>
+    <string name="content_description_add">添加</string>
+    <string name="content_description_send">发送</string>
+    <string name="content_description_stop">停止</string>
+    
+    <!-- Menu Items -->
+    <string name="menu_create_new_chat">创建新聊天</string>
+    <string name="menu_my_knowledge_base">我的知识库</string>
+    <string name="menu_history_dialogue">历史对话</string>
 </resources>

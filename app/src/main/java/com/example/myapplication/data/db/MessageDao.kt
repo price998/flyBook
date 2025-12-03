@@ -12,19 +12,6 @@ interface MessageDao {
     @Query("SELECT * FROM messages ORDER BY timestamp ASC")
     fun getAllMessages(): Flow<List<MessageEntity>>
 
-    // 获取指定时间戳之前的 N 条消息（用于下拉加载更多）
-    // 结果按时间戳正序排列，以便直接添加到列表头部
-    @Query(
-            "SELECT * FROM (SELECT * FROM messages WHERE timestamp < :beforeTimestamp ORDER BY timestamp DESC LIMIT :limit) ORDER BY timestamp ASC"
-    )
-    suspend fun getMessagesBefore(beforeTimestamp: Long, limit: Int): List<MessageEntity>
-
-    // 获取最新的 N 条消息
-    @Query(
-            "SELECT * FROM (SELECT * FROM messages ORDER BY timestamp DESC LIMIT :limit) ORDER BY timestamp ASC"
-    )
-    suspend fun getLatestMessages(limit: Int): List<MessageEntity>
-
     // 获取指定对话的指定时间戳之前的 N 条消息（用于下拉加载更多）
     @Query("SELECT * FROM (SELECT * FROM messages WHERE conversationId = :conversationId AND timestamp < :beforeTimestamp ORDER BY timestamp DESC LIMIT :limit) ORDER BY timestamp ASC")
     suspend fun getMessagesBefore(conversationId: String, beforeTimestamp: Long, limit: Int): List<MessageEntity>

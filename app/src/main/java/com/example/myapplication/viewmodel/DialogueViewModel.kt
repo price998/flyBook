@@ -5,57 +5,84 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import com.example.myapplication.data.DefaultTopics
 import com.example.myapplication.data.db.AppDatabase
-import com.example.myapplication.model.ChatHistory
-import com.example.myapplication.repository.ChatRepository
-import com.example.myapplication.repository.HistoryRepository
+import com.example.myapplication.data.db.RecommendedTopicEntity
 import kotlinx.coroutines.launch
+
 
 class DialogueViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = HistoryRepository(application)
-    private val chatRepository = ChatRepository(
-        AppDatabase.getDatabase(application).messageDao(),
-        AppDatabase.getDatabase(application).conversationDao()
-    )
+    private val topicDao = AppDatabase.getDatabase(application).recommendedTopicDao()
 
-    private val _historyList = MutableLiveData<List<ChatHistory>>()
-    val historyList: LiveData<List<ChatHistory>> = _historyList
+    private val _topicList = MutableLiveData<List<RecommendedTopicEntity>>()
+    val topicList: LiveData<List<RecommendedTopicEntity>> = _topicList
 
-    private val _isLoading = MutableLiveData<Boolean>()
-    val isLoading: LiveData<Boolean> = _isLoading
+    private val _isVoiceMode = MutableLiveData(false)
+    val isVoiceMode: LiveData<Boolean> = _isVoiceMode
 
-    private val _errorMessage = MutableLiveData<String?>()
-    val errorMessage: LiveData<String?> = _errorMessage
+    private val _toastMessage = MutableLiveData<String?>()
+    val toastMessage: LiveData<String?> = _toastMessage
+
+    private val _shouldClearInput = MutableLiveData(false)
+    val shouldClearInput: LiveData<Boolean> = _shouldClearInput
 
     init {
-        loadHistory()
+        initializeTopics()
+        loadTopics()
     }
 
-    fun loadHistory() {
+    private fun initializeTopics() {
         viewModelScope.launch {
-            _isLoading.value = true
-            _errorMessage.value = null
-            try {
-                val list = repository.getHistoryList()
-                _historyList.value = list
-            } catch (e: Exception) {
-                _errorMessage.value = "加载失败: ${e.message}"
-            } finally {
-                _isLoading.value = false
+            if (topicDao.getCount() == 0) {
+                topicDao.insertAll(DefaultTopics.getDefaultTopics())
+                loadTopics()
             }
         }
     }
-    
-    fun renameConversation(conversationId: String, newTitle: String) {
+
+    private fun loadTopics() {
         viewModelScope.launch {
-            try {
-                chatRepository.updateConversationTitle(conversationId, newTitle)
-                // 重新加载历史列表以显示更新后的标题
-                loadHistory()
-            } catch (e: Exception) {
-                _errorMessage.value = "重命名失败: ${e.message}"
+            topicDao.getAllTopics().collect { topics ->
+                _topicList.value = topics
             }
         }
+    }
+
+    /**
+     * 切换语音模式
+     */
+    fun toggleVoiceMode() {
+        _isVoiceMode.value = !(_isVoiceMode.value ?: false)
+    }
+
+    /**
+     * Toast 消息已显示
+     */
+    fun onToastShown() {
+        _toastMessage.value = null
+    }
+
+    /**
+     * 输入框已清空
+     */
+    fun onInputCleared() {
+        _shouldClearInput.value = false
+    }
+
+    /**
+     * 显示 Toast 消息
+     */
+    @Suppress("unused")
+    fun showToast(message: String) {
+        _toastMessage.value = message
+    }
+
+    /**
+     * 清空输入框
+     */
+    @Suppress("unused")
+    fun clearInput() {
+        _shouldClearInput.value = true
     }
 }
