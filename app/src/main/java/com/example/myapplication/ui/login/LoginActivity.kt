@@ -98,6 +98,11 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var btnLogin: MaterialButton
 
     /**
+     * 进入应用按钮（已登录时显示）
+     */
+    private lateinit var btnEnterApp: MaterialButton
+
+    /**
      * 登出按钮
      */
     private lateinit var btnLogout: MaterialButton
@@ -186,6 +191,7 @@ class LoginActivity : AppCompatActivity() {
         etPassword = findViewById(R.id.etPassword)
         etPasswordConfirm = findViewById(R.id.etPasswordConfirm)
         btnLogin = findViewById(R.id.btnLogin)
+        btnEnterApp = findViewById(R.id.btnEnterApp)
         btnLogout = findViewById(R.id.btnLogout)
         tvAccountInfo = findViewById(R.id.tvAccountInfo)
         tvForgotPassword = findViewById(R.id.tvForgotPassword)
@@ -258,6 +264,17 @@ class LoginActivity : AppCompatActivity() {
         }
 
         /**
+         * 进入应用按钮点击事件
+         *
+         * 功能：已登录用户点击后直接进入对话页面
+         */
+        btnEnterApp.setOnClickListener {
+            val intent = android.content.Intent(this, com.example.myapplication.ui.DialogueActivity::class.java)
+            startActivity(intent)
+            finish() // 关闭登录页面
+        }
+
+        /**
          * 登出按钮点击事件
          *
          * 直接调用 ViewModel 的 logout 方法
@@ -327,10 +344,8 @@ class LoginActivity : AppCompatActivity() {
         viewModel.accountInfo.observe(this) { account ->
             if (account != null) {
                 // 账户不为空 = 已登录
-                // 直接跳转到对话页面，不显示登录界面
-                val intent = android.content.Intent(this, com.example.myapplication.ui.DialogueActivity::class.java)
-                startActivity(intent)
-                finish() // 关闭登录页面
+                // 显示已登录界面（显示账户信息和操作选项）
+                showLoggedInState(account.username, account.accountId)
             } else {
                 // 账户为空 = 未登录
                 // 显示登录界面（隐藏账户信息，显示登录表单）
@@ -535,7 +550,8 @@ class LoginActivity : AppCompatActivity() {
         // \n：换行符
         tvAccountInfo.text = "欢迎回来，$username\n账户ID: $accountId"
 
-        // 显示登出按钮
+        // 显示进入应用按钮和登出按钮
+        btnEnterApp.visibility = View.VISIBLE
         btnLogout.visibility = View.VISIBLE
     }
 
@@ -564,6 +580,7 @@ class LoginActivity : AppCompatActivity() {
         // ==================== 隐藏账户信息 ====================
 
         tvAccountInfo.visibility = View.GONE   // 隐藏账户信息文本
+        btnEnterApp.visibility = View.GONE     // 隐藏进入应用按钮
         btnLogout.visibility = View.GONE       // 隐藏登出按钮
 
         // ==================== 重置为登录模式 ====================
