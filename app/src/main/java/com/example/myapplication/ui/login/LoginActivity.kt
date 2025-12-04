@@ -327,8 +327,10 @@ class LoginActivity : AppCompatActivity() {
         viewModel.accountInfo.observe(this) { account ->
             if (account != null) {
                 // 账户不为空 = 已登录
-                // 显示已登录界面（显示账户信息，隐藏登录表单）
-                showLoggedInState(account.username, account.accountId)
+                // 直接跳转到对话页面，不显示登录界面
+                val intent = android.content.Intent(this, com.example.myapplication.ui.DialogueActivity::class.java)
+                startActivity(intent)
+                finish() // 关闭登录页面
             } else {
                 // 账户为空 = 未登录
                 // 显示登录界面（隐藏账户信息，显示登录表单）
@@ -359,6 +361,11 @@ class LoginActivity : AppCompatActivity() {
                 // setText("")：设置文本为空字符串
                 etUsername.setText("")
                 etPassword.setText("")
+                
+                // 跳转到对话页面
+                val intent = android.content.Intent(this, com.example.myapplication.ui.DialogueActivity::class.java)
+                startActivity(intent)
+                finish() // 关闭登录页面，防止返回
             } else {
                 // 登录失败
                 Toast.makeText(this, "登录失败，请检查账号密码", Toast.LENGTH_SHORT).show()

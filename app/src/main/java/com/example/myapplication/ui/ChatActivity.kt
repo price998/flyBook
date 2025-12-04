@@ -340,6 +340,12 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
             updateSidebarSelection(isKnowledgeBase = true)
         }
 
+        // 侧边栏搜索按钮
+        binding.btnSidebarSearch.setOnClickListener {
+            binding.chatDrawerLayout.closeDrawer(GravityCompat.END)
+            startActivity(Intent(this, SearchActivity::class.java))
+        }
+
         binding.ivMic.setOnClickListener { toggleInputMode() }
 
         binding.ivMoreIcon.setOnClickListener { showModelSelectorDialog() }

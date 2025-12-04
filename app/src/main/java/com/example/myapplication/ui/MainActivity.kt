@@ -28,9 +28,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        binding.loginButton.setOnClickListener {
-            val username = binding.accountEditText.text.toString()
-            val password = binding.passwordEditText.text.toString()
+        binding.btnLogin.setOnClickListener {
+            val username = binding.etUsername.text.toString()
+            val password = binding.etPassword.text.toString()
 
             if (isLoginMode) {
                 viewModel.login(username, password)
@@ -39,7 +39,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        binding.registerLinkText.setOnClickListener {
+        binding.tvModeSwitch.setOnClickListener {
             toggleMode()
         }
     }
@@ -48,12 +48,14 @@ class MainActivity : AppCompatActivity() {
         isLoginMode = !isLoginMode
         if (isLoginMode) {
             binding.titleText.text = "欢迎回来" // 或使用资源字符串
-            binding.loginButton.text = "登录"
-            binding.registerLinkText.text = "没有账号？立即注册"
+            binding.btnLogin.text = "登录"
+            binding.tvModeTip.text = "没有账号？"
+            binding.tvModeSwitch.text = "立即注册"
         } else {
             binding.titleText.text = "创建账号"
-            binding.loginButton.text = "注册"
-            binding.registerLinkText.text = "已有账号？立即登录"
+            binding.btnLogin.text = "注册"
+            binding.tvModeTip.text = "已有账号？"
+            binding.tvModeSwitch.text = "立即登录"
         }
     }
 
@@ -87,7 +89,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         viewModel.isLoading.observe(this) { isLoading ->
-            binding.loginButton.isEnabled = !isLoading
+            binding.btnLogin.isEnabled = !isLoading
         }
     }
 }
