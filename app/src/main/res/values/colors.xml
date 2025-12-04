@@ -16,4 +16,5 @@
     <color name="sidebar_background">#FFF8F6</color>
     <color name="sidebar_item_selected_text">#5E35B1</color>
     <color name="sidebar_item_selected_background">#FFEBE6</color>
+    <color name="light_blue_bg">#E8F3FF</color>
 </resources>

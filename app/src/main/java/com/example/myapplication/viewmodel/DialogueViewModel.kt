@@ -6,7 +6,10 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.DefaultTopics
-import com.example.myapplication.data.RecommendedTopic
+
+import com.example.myapplication.data.db.AppDatabase
+import com.example.myapplication.data.db.RecommendedTopicEntity
+import kotlinx.coroutines.launch
 
 
 class DialogueViewModel(application: Application) : AndroidViewModel(application) {
@@ -51,7 +54,7 @@ class DialogueViewModel(application: Application) : AndroidViewModel(application
     fun onInputCleared() {
         _shouldClearInput.value = false
     }
-    
+
     /**
      * 显示 Toast 消息
      */
@@ -59,7 +62,44 @@ class DialogueViewModel(application: Application) : AndroidViewModel(application
     fun showToast(message: String) {
         _toastMessage.value = message
     }
-    
+
+    /**
+     * 清空输入框
+     */
+    @Suppress("unused")
+    fun clearInput() {
+        _shouldClearInput.value = true
+    }
+
+    /**
+     * 切换语音模式
+     */
+    fun toggleVoiceMode() {
+        _isVoiceMode.value = !(_isVoiceMode.value ?: false)
+    }
+
+    /**
+     * Toast 消息已显示
+     */
+    fun onToastShown() {
+        _toastMessage.value = null
+    }
+
+    /**
+     * 输入框已清空
+     */
+    fun onInputCleared() {
+        _shouldClearInput.value = false
+    }
+
+    /**
+     * 显示 Toast 消息
+     */
+    @Suppress("unused")
+    fun showToast(message: String) {
+        _toastMessage.value = message
+    }
+
     /**
      * 清空输入框
      */

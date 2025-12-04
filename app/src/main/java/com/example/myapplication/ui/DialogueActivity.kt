@@ -32,8 +32,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import com.example.myapplication.databinding.ItemDialogMenuBinding
 import androidx.lifecycle.lifecycleScope
+import com.example.myapplication.databinding.ItemDialogMenuBinding
+
 
 class DialogueActivity : AppCompatActivity() {
 
@@ -42,7 +43,7 @@ class DialogueActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDialogueBinding
     private lateinit var historyAdapter: HistoryAdapter
     private lateinit var topicAdapter: TopicAdapter
-    
+
     private var autoScrollJob: Job? = null
     private var isUserInteracting = false
 
@@ -55,7 +56,7 @@ class DialogueActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        
+
         binding = ActivityDialogueBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -99,10 +100,10 @@ class DialogueActivity : AppCompatActivity() {
             val params = v.layoutParams as android.view.ViewGroup.MarginLayoutParams
             params.bottomMargin = bottomPadding
             v.layoutParams = params
-            
+
             insets
         }
-        
+
         // 适配侧边栏
          ViewCompat.setOnApplyWindowInsetsListener(binding.navDrawerLayout) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -138,7 +139,7 @@ class DialogueActivity : AppCompatActivity() {
                 Toast.makeText(this, "联网搜索已关闭", Toast.LENGTH_SHORT).show()
             }
         }
-        
+
         // 点击更多模型按钮
         binding.ivMoreIcon.setOnClickListener {
             showModelSelectorDialog()
@@ -169,7 +170,7 @@ class DialogueActivity : AppCompatActivity() {
                     // 传递当前的语音模式状态
                     intent.putExtra("is_voice_mode", viewModel.isVoiceMode.value ?: false)
                     startActivity(intent)
-                    
+
                     // 清空输入框
                     runOnUiThread {
                         binding.etInput.text.clear()
@@ -177,10 +178,55 @@ class DialogueActivity : AppCompatActivity() {
                 }
             }
         }
+
+        // 点击“按住说话”：开始录音
+        binding.tvHoldToSpeak.setOnClickListener {
+             Toast.makeText(this, "正在录音...", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun setupNavigation() {
+        // 设置历史记录列表
+        historyAdapter = HistoryAdapter(
+            mutableListOf(),
+            onItemClick = { history ->
+                binding.drawerLayout.closeDrawer(GravityCompat.END)
+                val intent = Intent(this, ChatActivity::class.java)
+                intent.putExtra(ChatActivity.EXTRA_CONVERSATION_ID, history.id)
+                startActivity(intent)
+            },
+            onItemLongClick = { _ ->
+                 // 长按处理逻辑，比如删除或置顶
+                 // TODO: 实现长按功能（删除、置顶等）
+            }
+        )
+
+        binding.historyRecyclerview.apply {
+            layoutManager = LinearLayoutManager(this@DialogueActivity)
+            adapter = historyAdapter
+        }
+
+        // 绑定侧边栏按钮点击事件
+        binding.btnNewChat.setOnClickListener {
+            binding.drawerLayout.closeDrawer(GravityCompat.END)
+            // 重置界面
+            Toast.makeText(this, "已创建新对话", Toast.LENGTH_SHORT).show()
+            binding.etInput.text.clear()
+            updateSidebarSelection(isNewChat = true)
+                    }
+
+        binding.btnKnowledgeBase.setOnClickListener {
+            binding.drawerLayout.closeDrawer(GravityCompat.END)
+            Toast.makeText(this, "我的知识库", Toast.LENGTH_SHORT).show()
+            updateSidebarSelection(isKnowledgeBase = true)
+                }
+            }
+                    }
         
         // 点击“按住说话”：开始录音
         binding.tvHoldToSpeak.setOnClickListener {
              Toast.makeText(this, "正在录音...", Toast.LENGTH_SHORT).show()
+                }
         }
     }
 
@@ -201,7 +247,7 @@ class DialogueActivity : AppCompatActivity() {
                     mapOf("text" to "重命名会话标题", "icon" to R.drawable.icon_edit),
                     mapOf("text" to "删除会话", "icon" to R.drawable.icon_delete)
                 )
-                
+
                 val adapter = object : android.widget.ArrayAdapter<Map<String, Any>>(
                     this,
                     R.layout.item_dialog_menu,
@@ -219,14 +265,14 @@ class DialogueActivity : AppCompatActivity() {
                             view = convertView
                             binding = view.tag as ItemDialogMenuBinding
                         }
-                        
+
                         val item = getItem(position) ?: return view
                         val iconRes = item["icon"] as Int
                         val text = item["text"] as String
-                        
+
                         binding.ivMenuIcon.setImageResource(iconRes)
                         binding.tvMenuText.text = text
-                        
+
                         // 设置红色样式给删除项
                         if (text == "删除会话") {
                             binding.tvMenuText.setTextColor(android.graphics.Color.RED)
@@ -235,7 +281,7 @@ class DialogueActivity : AppCompatActivity() {
                             binding.tvMenuText.setTextColor(android.graphics.Color.BLACK)
                             binding.ivMenuIcon.setColorFilter(android.graphics.Color.BLACK)
                         }
-                        
+
                         return view
                     }
                 }
@@ -264,7 +310,7 @@ class DialogueActivity : AppCompatActivity() {
                     .show()
             }
         )
-        
+
         binding.historyRecyclerview.apply {
             layoutManager = LinearLayoutManager(this@DialogueActivity)
             adapter = historyAdapter
@@ -302,7 +348,7 @@ class DialogueActivity : AppCompatActivity() {
             if (content.isNotEmpty()) {
                 val isWebSearchEnabled = binding.layoutWebSearch.isSelected
                 val isVoiceMode = viewModel.isVoiceMode.value ?: false
-                
+
                 historyViewModel.createNewConversation(content) { conversationId ->
                     runOnUiThread {
                         try {
@@ -312,7 +358,7 @@ class DialogueActivity : AppCompatActivity() {
                             intent.putExtra("is_web_search_enabled", isWebSearchEnabled)
                             intent.putExtra("is_voice_mode", isVoiceMode)
                             startActivity(intent)
-                            
+
                             binding.etInput.text.clear()
                         } catch (e: Exception) {
                             e.printStackTrace()
@@ -329,7 +375,7 @@ class DialogueActivity : AppCompatActivity() {
                 androidx.recyclerview.widget.StaggeredGridLayoutManager.HORIZONTAL
             )
             adapter = topicAdapter
-            
+
             addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
                 override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
                     when (e.action) {
@@ -346,7 +392,7 @@ class DialogueActivity : AppCompatActivity() {
         stopAutoScroll()
         autoScrollJob = lifecycleScope.launch {
             while (isActive) {
-                delay(30) 
+                delay(30)
                 if (!isUserInteracting && binding.topicRecyclerview.canScrollHorizontally(1)) {
                     binding.topicRecyclerview.scrollBy(2, 0)
                 }
@@ -358,14 +404,14 @@ class DialogueActivity : AppCompatActivity() {
         autoScrollJob?.cancel()
         autoScrollJob = null
     }
-    
+
     private fun updateSidebarSelection(isNewChat: Boolean = false, isKnowledgeBase: Boolean = false) {
         // 清除历史列表选中状态
         if (isNewChat || isKnowledgeBase) {
              historyAdapter.setSelectedId(null)
         }
     }
-    
+
     private fun showModelSelectorDialog() {
         val dialog = BottomSheetDialog(this)
         val dialogBinding = DialogModelSelectorBinding.inflate(layoutInflater)
@@ -442,5 +488,5 @@ class DialogueActivity : AppCompatActivity() {
             }
         }
     }
-    
+
 }
