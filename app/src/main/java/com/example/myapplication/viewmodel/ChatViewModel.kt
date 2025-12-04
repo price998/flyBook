@@ -2,6 +2,8 @@ package com.example.myapplication.viewmodel
 
 import android.app.Application
 import android.content.ContentResolver
+import android.graphics.Bitmap
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
@@ -12,29 +14,24 @@ import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.db.AppDatabase
 import com.example.myapplication.model.ApiMessage
 import com.example.myapplication.model.ChatMessage
-import com.example.myapplication.model.MediaType
 import com.example.myapplication.model.ModelConfig
 import com.example.myapplication.model.ModelRegistry
 import com.example.myapplication.network.SerperWebSearchService
 import com.example.myapplication.network.WebSearchService
-import com.example.myapplication.model.SelectedMedia
 import com.example.myapplication.repository.ChatRepository
 import com.example.myapplication.utils.ModelPreferences
 import com.example.myapplication.utils.OCRHelper
-import android.graphics.Bitmap
-import android.graphics.pdf.PdfRenderer
-import android.os.ParcelFileDescriptor
+import java.nio.charset.Charset
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.nio.charset.Charset
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private const val TAG = "ChatViewModel"
-        private const val TYPING_DELAY_MS = 80L // 打字机效果延迟（毫秒），增加延迟减少刷新频率，提升流畅度
-        private const val BATCH_SIZE = 5 // 每收到5个字符才更新一次UI，减少渲染次数
+        private const val TYPING_DELAY_MS = 30L // 30ms延迟，平衡流畅度与性能（约30fps）
+        private const val BATCH_SIZE = 4 // 每4个字符更新一次，减少UI渲染压力
         private const val MAX_FILE_PREVIEW_CHARS = 8000
     }
 
@@ -44,7 +41,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // 当前对话ID
     private var conversationId: String = ""
-    val currentConversationId: String get() = conversationId
+    val currentConversationId: String
+        get() = conversationId
 
     private val _messages = MutableLiveData(mutableListOf<ChatMessage>())
     val messages: LiveData<MutableList<ChatMessage>> = _messages
@@ -65,20 +63,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
     // 联网搜索开关状态
     private val _isSearchEnabled = MutableLiveData(false)
-    @Suppress("unused")
-    val isSearchEnabled: LiveData<Boolean> = _isSearchEnabled
+    @Suppress("unused") val isSearchEnabled: LiveData<Boolean> = _isSearchEnabled
 
     fun toggleSearch(enabled: Boolean) {
+        Log.d(TAG, "toggleSearch called with enabled: $enabled")
         _isSearchEnabled.value = enabled
     }
-
 
     // 图片OCR解析状态
     private val _ocrProgress = MutableLiveData<OCRProgress>()
     val ocrProgress: LiveData<OCRProgress> = _ocrProgress
 
     sealed class OCRProgress {
-        object Idle : OCRProgress()
+        data object Idle : OCRProgress()
         data class Recognizing(val current: Int, val total: Int) : OCRProgress() // 当前进度
         data class Success(val text: String) : OCRProgress()
         data class Error(val message: String) : OCRProgress()
@@ -195,7 +192,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             Log.w(TAG, "conversationId为空，创建新对话")
             viewModelScope.launch {
                 try {
-                    val title = if (content.length > 20) content.substring(0, 20) + "..." else content
+                    val title =
+                            if (content.length > 20) content.substring(0, 20) + "..." else content
                     conversationId = repository.createConversation(title)
                     Log.d(TAG, "创建新对话: $conversationId")
                     // 递归调用，这次conversationId已经有值了
@@ -246,29 +244,32 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val aiMsgIndex = currentList.size - 1
         _messageUpdate.value = MessageUpdateEvent.ItemInserted(aiMsgIndex)
 
-        generationJob = viewModelScope.launch {
-            _isGenerating.value = true
-            var searchResultForDisplay = ""
+        generationJob =
+                viewModelScope.launch {
+                    _isGenerating.value = true
+                    var searchResultForDisplay = ""
 
-            // --- 联网搜索逻辑 ---
-            if (_isSearchEnabled.value == true) {
-                try {
-                    // 更新UI显示正在搜索
-                    currentList[aiMsgIndex] =
-                            ChatMessage("🔍 正在联网搜索相关信息...", false, isComplete = false)
-                    _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
+                    // --- 联网搜索逻辑 ---
+                    Log.d(TAG, "Search enabled status: ${_isSearchEnabled.value}")
+                    if (_isSearchEnabled.value == true) {
+                        Log.d(TAG, "Starting web search for: $content")
+                        try {
+                            // 更新UI显示正在搜索
+                            currentList[aiMsgIndex] =
+                                    ChatMessage("🔍 正在联网搜索相关信息...", false, isComplete = false)
+                            _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
 
-                    // 执行搜索
-                    val searchResult = webSearchService.search(content)
-                    searchResultForDisplay = searchResult // 保存以用于显示
+                            // 执行搜索
+                            val searchResult = webSearchService.search(content)
+                            searchResultForDisplay = searchResult // 保存以用于显示
 
-                    // 构造 Prompt
-                    if (apiMessages.isNotEmpty()) {
-                        val lastIndex = apiMessages.lastIndex
-                        val lastMsg = apiMessages[lastIndex]
-                        if (lastMsg.role == "user") {
-                            val newContent =
-                                    """
+                            // 构造 Prompt
+                            if (apiMessages.isNotEmpty()) {
+                                val lastIndex = apiMessages.lastIndex
+                                val lastMsg = apiMessages[lastIndex]
+                                if (lastMsg.role == "user") {
+                                    val newContent =
+                                            """
                                 基于以下互联网搜索结果回答用户问题。如果搜索结果没有帮助，请使用你自己的知识。
                                 
                                 【搜索结果】：
@@ -276,57 +277,77 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 
                                 【用户问题】：${lastMsg.content}
                             """.trimIndent()
-                            apiMessages[lastIndex] = lastMsg.copy(content = newContent)
+                                    apiMessages[lastIndex] = lastMsg.copy(content = newContent)
+                                }
+                            }
+
+                            // 清空提示文字，准备开始流式输出
+                            currentList[aiMsgIndex] = ChatMessage("", false, isComplete = false)
+                            _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
+                        } catch (e: Exception) {
+                            Log.e(TAG, "搜索失败", e)
+                            // 搜索失败不影响继续对话，只是没有搜索结果
                         }
                     }
+                    // --- 联网搜索结束 ---
 
-                    // 清空提示文字，准备开始流式输出
-                    currentList[aiMsgIndex] = ChatMessage("", false, isComplete = false)
-                    _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
-                } catch (e: Exception) {
-                    Log.e(TAG, "搜索失败", e)
-                    // 搜索失败不影响继续对话，只是没有搜索结果
-                }
-            }
-            // --- 联网搜索结束 ---
-
-            val fullResponseBuilder = StringBuilder()
-            if (searchResultForDisplay.isNotEmpty()) {
-                fullResponseBuilder.append("### 🔍 搜索结果\n\n")
-                fullResponseBuilder.append(searchResultForDisplay)
-                // 确保 --- 前面有空行，避免上一行被解析为标题
-                fullResponseBuilder.append("\n\n---\n\n")
-            }
-
-            val reasoningBuilder = StringBuilder()
-            var charCount = 0 // 字符计数器
-
-            try {
-                Log.d(TAG, "开始流式请求，模型: ${model.apiModel}")
-                repository.streamChat(apiMessages, model).collect { delta ->
-                    // 检查是否需要停止
-                    if (stopGenerationFlag) {
-                        Log.d(TAG, "检测到停止标志，终止生成")
-                        throw java.util.concurrent.CancellationException("用户停止生成")
-                    }
-                    val deltaContent = delta.content
-                    val reasoning = delta.reasoningContent
-
-                    if (!reasoning.isNullOrEmpty()) {
-                        reasoningBuilder.append(reasoning)
+                    val fullResponseBuilder = StringBuilder()
+                    if (searchResultForDisplay.isNotEmpty()) {
+                        fullResponseBuilder.append("### 🔍 搜索结果\n\n")
+                        fullResponseBuilder.append(searchResultForDisplay)
+                        // 确保 --- 前面有空行，避免上一行被解析为标题
+                        fullResponseBuilder.append("\n\n---\n\n")
                     }
 
-                    if (!deltaContent.isNullOrEmpty()) {
-                        fullResponseBuilder.append(deltaContent)
-                        charCount += deltaContent.length
-                    }
+                    val reasoningBuilder = StringBuilder()
+                    var charCount = 0 // 字符计数器
 
-                    // 批量更新：每收到 BATCH_SIZE 个字符才更新一次UI
-                    if (charCount >= BATCH_SIZE) {
-                        charCount = 0
+                    try {
+                        Log.d(TAG, "开始流式请求，模型: ${model.apiModel}")
+                        repository.streamChat(apiMessages, model).collect { delta ->
+                            // 检查是否需要停止
+                            if (stopGenerationFlag) {
+                                Log.d(TAG, "检测到停止标志，终止生成")
+                                throw java.util.concurrent.CancellationException("用户停止生成")
+                            }
+                            val deltaContent = delta.content
+                            val reasoning = delta.reasoningContent
 
-                        // 更新列表中的消息对象（流式输出中，标记为未完成）
-                        currentList[aiMsgIndex] =
+                            if (!reasoning.isNullOrEmpty()) {
+                                reasoningBuilder.append(reasoning)
+                            }
+
+                            if (!deltaContent.isNullOrEmpty()) {
+                                fullResponseBuilder.append(deltaContent)
+                                charCount += deltaContent.length
+                            }
+
+                            // 批量更新：每收到 BATCH_SIZE 个字符才更新一次UI
+                            if (charCount >= BATCH_SIZE) {
+                                charCount = 0
+
+                                // 更新列表中的消息对象（流式输出中，标记为未完成）
+                                currentList[aiMsgIndex] =
+                                        ChatMessage(
+                                                content = fullResponseBuilder.toString(),
+                                                isUser = false,
+                                                reasoningContent =
+                                                        reasoningBuilder.toString().takeIf {
+                                                            it.isNotEmpty()
+                                                        },
+                                                isComplete = false
+                                        )
+                                // 通知 Adapter 更新特定位置
+                                _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
+
+                                // 添加延迟以控制打字机速度
+                                delay(TYPING_DELAY_MS)
+                            }
+                        }
+
+                        // 流式输出完成，标记消息为完成状态
+                        Log.d(TAG, "流式输出完成")
+                        val completeMsg =
                                 ChatMessage(
                                         content = fullResponseBuilder.toString(),
                                         isUser = false,
@@ -334,70 +355,59 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                                 reasoningBuilder.toString().takeIf {
                                                     it.isNotEmpty()
                                                 },
-                                        isComplete = false
+                                        isComplete = true
                                 )
-                        // 通知 Adapter 更新特定位置
+                        currentList[aiMsgIndex] = completeMsg
                         _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
 
-                        // 添加延迟以控制打字机速度
-                        delay(TYPING_DELAY_MS)
-                    }
-                }
-
-                // 流式输出完成，标记消息为完成状态
-                Log.d(TAG, "流式输出完成")
-                val completeMsg =
-                        ChatMessage(
-                                content = fullResponseBuilder.toString(),
-                                isUser = false,
-                                reasoningContent =
-                                        reasoningBuilder.toString().takeIf { it.isNotEmpty() },
-                                isComplete = true
-                        )
-                currentList[aiMsgIndex] = completeMsg
-                _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
-
-                // 保存 AI 消息到数据库
-                repository.saveMessage(conversationId, completeMsg)
-            } catch (e: Exception) {
-                // 处理错误或取消，标记为完成状态
-                if (e is java.util.concurrent.CancellationException || stopGenerationFlag) {
-                     Log.d(TAG, "生成已取消")
-                } else {
-                     fullResponseBuilder.append("\n[Error: ${e.message}]")
-                     Log.e(TAG, "流式输出错误", e)
-                }
-
-                currentList[aiMsgIndex] =
-                        ChatMessage(
-                                content = fullResponseBuilder.toString(),
-                                isUser = false,
-                                isComplete = true,
-                                reasoningContent = reasoningBuilder.toString().takeIf { it.isNotEmpty() }
-                        )
-                _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
-
-                // 即使取消或出错，也保存已生成的内容
-                val partialMsg = ChatMessage(
-                    content = fullResponseBuilder.toString(),
-                    isUser = false,
-                    isComplete = true,
-                    reasoningContent = reasoningBuilder.toString().takeIf { it.isNotEmpty() }
-                )
-                // 启动新协程异步保存，使能够立即响应停止状态
-                viewModelScope.launch {
-                    try {
-                        repository.saveMessage(conversationId, partialMsg)
+                        // 保存 AI 消息到数据库
+                        repository.saveMessage(conversationId, completeMsg)
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error saving partial message", e)
+                        // 处理错误或取消，标记为完成状态
+                        if (e is java.util.concurrent.CancellationException || stopGenerationFlag) {
+                            Log.d(TAG, "生成已取消")
+                        } else {
+                            fullResponseBuilder.append("\n[Error: ${e.message}]")
+                            Log.e(TAG, "流式输出错误", e)
+                        }
+
+                        currentList[aiMsgIndex] =
+                                ChatMessage(
+                                        content = fullResponseBuilder.toString(),
+                                        isUser = false,
+                                        isComplete = true,
+                                        reasoningContent =
+                                                reasoningBuilder.toString().takeIf {
+                                                    it.isNotEmpty()
+                                                }
+                                )
+                        _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
+
+                        // 即使取消或出错，也保存已生成的内容
+                        val partialMsg =
+                                ChatMessage(
+                                        content = fullResponseBuilder.toString(),
+                                        isUser = false,
+                                        isComplete = true,
+                                        reasoningContent =
+                                                reasoningBuilder.toString().takeIf {
+                                                    it.isNotEmpty()
+                                                }
+                                )
+                        // 启动新协程异步保存，使能够立即响应停止状态
+                        viewModelScope.launch {
+                            try {
+                                repository.saveMessage(conversationId, partialMsg)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error saving partial message", e)
+                            }
+                        }
+                    } finally {
+                        _isGenerating.value = false
+                        stopGenerationFlag = false
+                        generationJob = null
                     }
                 }
-            } finally {
-                _isGenerating.value = false
-                stopGenerationFlag = false
-                generationJob = null
-            }
-        }
     }
 
     /**
@@ -414,8 +424,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val recognizedText = ocrHelper.parseImage(uri)
 
                 if (recognizedText.startsWith("错误") ||
-                    recognizedText.startsWith("OCR识别失败") ||
-                    recognizedText.startsWith("处理图片失败")) {
+                                recognizedText.startsWith("OCR识别失败") ||
+                                recognizedText.startsWith("处理图片失败")
+                ) {
                     results.add("") // 识别失败，添加空字符串
                     Log.w(TAG, "图片OCR识别失败: $uri")
                 } else {
@@ -436,15 +447,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * @param textContent 用户输入的文本内容
      * @param imageUris 图片URI列表
      */
+    @Suppress("unused")
     fun sendMessageWithOCR(textContent: String, imageUris: List<Uri>) {
         sendMessageWithAttachments(textContent, imageUris, emptyList())
     }
 
-    fun sendMessageWithAttachments(
-            textContent: String,
-            imageUris: List<Uri>,
-            fileUris: List<Uri>
-    ) {
+    fun sendMessageWithAttachments(textContent: String, imageUris: List<Uri>, fileUris: List<Uri>) {
         if (imageUris.isEmpty() && fileUris.isEmpty()) {
             sendMessage(textContent)
             return
@@ -484,9 +492,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
-                withContext(Dispatchers.Main) {
-                    sendMessage(finalContent)
-                }
+                withContext(Dispatchers.Main) { sendMessage(finalContent) }
 
                 if (imageUris.isNotEmpty()) {
                     _ocrProgress.value = OCRProgress.Success(finalContent)
@@ -521,62 +527,86 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val ocrHelper = OCRHelper(getApplication())
 
         return withContext(Dispatchers.IO) {
-            val results = fileUris.map { uri ->
-                val mimeType = resolver.getType(uri) ?: "application/octet-stream"
-                val name = queryFileName(resolver, uri) ?: uri.lastPathSegment.orEmpty()
-                val extension = name.substringAfterLast('.', "").lowercase()
+            val results =
+                    fileUris.map { uri ->
+                        val mimeType = resolver.getType(uri) ?: "application/octet-stream"
+                        val name = queryFileName(resolver, uri) ?: uri.lastPathSegment.orEmpty()
+                        val extension = name.substringAfterLast('.', "").lowercase()
 
-                try {
-                    val content = when {
-                        mimeType == "application/pdf" || extension == "pdf" -> {
-                            readPdfContent(resolver, uri, ocrHelper)
-                        }
-                        mimeType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || extension == "docx" -> {
-                            readDocxContent(resolver, uri)
-                        }
-                        mimeType == "application/msword" || extension == "doc" -> {
-                            "不支持 .doc 格式，请转换为 .docx 后重试"
-                        }
-                        mimeType.startsWith("text/") ||
-                        mimeType.contains("json") ||
-                        mimeType.contains("xml") ||
-                        mimeType.contains("javascript") ||
-                        mimeType.contains("gradle") ||
-                        mimeType.contains("properties") ||
-                        extension in setOf("txt", "md", "json", "xml", "html", "css", "js", "kt", "java", "py", "c", "cpp", "h", "gradle", "properties", "log") -> {
-                            readTextContent(resolver, uri)
-                        }
-                        else -> {
-                            // 尝试作为文本读取，如果检测到二进制则报错
-                            try {
-                                readTextContent(resolver, uri)
-                            } catch (e: Exception) {
-                                "不支持的文件格式: $mimeType ($extension)"
-                            }
+                        try {
+                            val content =
+                                    when {
+                                        mimeType == "application/pdf" || extension == "pdf" -> {
+                                            readPdfContent(resolver, uri, ocrHelper)
+                                        }
+                                        mimeType ==
+                                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+                                                extension == "docx" -> {
+                                            readDocxContent(resolver, uri)
+                                        }
+                                        mimeType == "application/msword" || extension == "doc" -> {
+                                            "不支持 .doc 格式，请转换为 .docx 后重试"
+                                        }
+                                        mimeType.startsWith("text/") ||
+                                                mimeType.contains("json") ||
+                                                mimeType.contains("xml") ||
+                                                mimeType.contains("javascript") ||
+                                                mimeType.contains("gradle") ||
+                                                mimeType.contains("properties") ||
+                                                extension in
+                                                        setOf(
+                                                                "txt",
+                                                                "md",
+                                                                "json",
+                                                                "xml",
+                                                                "html",
+                                                                "css",
+                                                                "js",
+                                                                "kt",
+                                                                "java",
+                                                                "py",
+                                                                "c",
+                                                                "cpp",
+                                                                "h",
+                                                                "gradle",
+                                                                "properties",
+                                                                "log"
+                                                        ) -> {
+                                            readTextContent(resolver, uri)
+                                        }
+                                        else -> {
+                                            // 尝试作为文本读取，如果检测到二进制则报错
+                                            try {
+                                                readTextContent(resolver, uri)
+                                            } catch (e: Exception) {
+                                                "不支持的文件格式: $mimeType ($extension)"
+                                            }
+                                        }
+                                    }
+
+                            // 截断过长的内容
+                            val finalContent =
+                                    if (content.length > MAX_FILE_PREVIEW_CHARS) {
+                                        content.substring(0, MAX_FILE_PREVIEW_CHARS) +
+                                                "\n\n[内容因过长已截断]"
+                                    } else {
+                                        content
+                                    }
+
+                            FileParseResult(
+                                    fileName = name.ifBlank { "未命名文件" },
+                                    content = finalContent,
+                                    mimeType = mimeType
+                            )
+                        } catch (e: Exception) {
+                            Log.e(TAG, "解析文件失败: $uri", e)
+                            FileParseResult(
+                                    fileName = name.ifBlank { "未命名文件" },
+                                    content = "解析失败: ${e.message}",
+                                    mimeType = mimeType
+                            )
                         }
                     }
-
-                    // 截断过长的内容
-                    val finalContent = if (content.length > MAX_FILE_PREVIEW_CHARS) {
-                        content.substring(0, MAX_FILE_PREVIEW_CHARS) + "\n\n[内容因过长已截断]"
-                    } else {
-                        content
-                    }
-
-                    FileParseResult(
-                        fileName = name.ifBlank { "未命名文件" },
-                        content = finalContent,
-                        mimeType = mimeType
-                    )
-                } catch (e: Exception) {
-                    Log.e(TAG, "解析文件失败: $uri", e)
-                    FileParseResult(
-                        fileName = name.ifBlank { "未命名文件" },
-                        content = "解析失败: ${e.message}",
-                        mimeType = mimeType
-                    )
-                }
-            }
             ocrHelper.close()
             results
         }
@@ -615,16 +645,21 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         // 移除所有其他标签
         text = text.replace(Regex("<[^>]+>"), "")
         // 处理XML实体
-        text = text.replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&amp;", "&")
-            .replace("&quot;", "\"")
-            .replace("&apos;", "'")
+        text =
+                text.replace("&lt;", "<")
+                        .replace("&gt;", ">")
+                        .replace("&amp;", "&")
+                        .replace("&quot;", "\"")
+                        .replace("&apos;", "'")
 
         return text.trim()
     }
 
-    private suspend fun readPdfContent(resolver: ContentResolver, uri: Uri, ocrHelper: OCRHelper): String {
+    private suspend fun readPdfContent(
+            resolver: ContentResolver,
+            uri: Uri,
+            ocrHelper: OCRHelper
+    ): String {
         return resolver.openFileDescriptor(uri, "r")?.use { pfd ->
             val pdfRenderer = PdfRenderer(pfd)
             val builder = StringBuilder()
@@ -634,11 +669,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             for (i in 0 until minOf(pageCount, maxPages)) {
                 val page = pdfRenderer.openPage(i)
                 // 创建Bitmap，放大2倍以提高OCR识别率
-                val bitmap = Bitmap.createBitmap(
-                    page.width * 2,
-                    page.height * 2,
-                    Bitmap.Config.ARGB_8888
-                )
+                val bitmap =
+                        Bitmap.createBitmap(
+                                page.width * 2,
+                                page.height * 2,
+                                Bitmap.Config.ARGB_8888
+                        )
                 page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
 
                 val text = ocrHelper.parseBitmap(bitmap)
@@ -659,7 +695,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             } else {
                 builder.toString()
             }
-        } ?: throw IllegalStateException("无法打开PDF文件")
+        }
+                ?: throw IllegalStateException("无法打开PDF文件")
     }
 
     private fun readTextContent(resolver: ContentResolver, uri: Uri): String {
@@ -691,11 +728,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 // 简单的启发式检查：如果包含过多替换字符，可能不是UTF-8
                 // \uFFFD 是 Unicode 替换字符
                 if (text.contains("\uFFFD")) {
-                     // 如果替换字符占比过高，尝试 GBK
-                     val replacementCount = text.count { it == '\uFFFD' }
-                     if (replacementCount > text.length * 0.05) {
-                         throw Exception("Probably not UTF-8")
-                     }
+                    // 如果替换字符占比过高，尝试 GBK
+                    val replacementCount = text.count { it == '\uFFFD' }
+                    if (replacementCount > text.length * 0.05) {
+                        throw Exception("Probably not UTF-8")
+                    }
                 }
                 return text
             } catch (e: Exception) {
@@ -735,11 +772,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         return builder.toString()
     }
 
-    data class FileParseResult(
-            val fileName: String,
-            val content: String,
-            val mimeType: String
-    )
+    data class FileParseResult(val fileName: String, val content: String, val mimeType: String)
 }
 
 sealed class MessageUpdateEvent {

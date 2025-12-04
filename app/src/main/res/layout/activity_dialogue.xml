@@ -148,8 +148,21 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent">
 
+            <!-- Preview List for Images/Files -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_preview"
+                android:layout_width="match_parent"
+                android:layout_height="80dp"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                app:layout_constraintBottom_toTopOf="@+id/input_box_container"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_marginBottom="8dp"/>
+
             <!-- Input Box -->
             <androidx.constraintlayout.widget.ConstraintLayout
+                android:id="@+id/input_box_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_input_box"

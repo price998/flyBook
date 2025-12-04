@@ -72,13 +72,13 @@
             android:layout_marginStart="8dp"
             android:layout_weight="1"
             android:background="@drawable/bg_btn_confirm"
+            android:clickable="true"
+            android:focusable="true"
             android:gravity="center"
             android:text="完成"
             android:textColor="@android:color/white"
             android:textSize="16sp"
-            android:textStyle="bold"
-            android:clickable="true"
-            android:focusable="true" />
+            android:textStyle="bold" />
 
     </LinearLayout>
 

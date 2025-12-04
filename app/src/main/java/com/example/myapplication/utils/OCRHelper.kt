@@ -32,13 +32,6 @@ class OCRHelper(private val context: Context) {
         try {
             // 从URI创建InputImage
             val image = InputImage.fromFilePath(context, uri)
-            
-            if (image == null) {
-                Log.e(TAG, "无法从URI创建InputImage: $uri")
-                continuation.resume("错误：无法读取图片文件")
-                return@suspendCancellableCoroutine
-            }
-
             processImage(image, continuation)
         } catch (e: Exception) {
             Log.e(TAG, "处理图片时发生异常", e)

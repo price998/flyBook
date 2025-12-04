@@ -60,6 +60,14 @@ dependencies {
     
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     
+    // Glide for image loading
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    kapt("com.github.bumptech.glide:compiler:4.16.0")
+    
+    // ML Kit for OCR
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.0")
+    
     // Markwon for Markdown rendering
     implementation("io.noties.markwon:core:4.6.2") {
         exclude(group = "org.jetbrains", module = "annotations-java5")
@@ -91,6 +99,9 @@ dependencies {
         exclude(group = "org.jetbrains", module = "annotations-java5")
     }
     kapt("io.noties:prism4j-bundler:2.0.0")
+    
+    // 科大讯飞语音识别SDK
+    implementation(files("libs/Msc.jar"))
     
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

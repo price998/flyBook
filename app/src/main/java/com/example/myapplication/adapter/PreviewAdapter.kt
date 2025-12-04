@@ -8,16 +8,15 @@ import android.view.View
 import android.view.ViewGroup
 import com.example.myapplication.databinding.ItemMediaPreviewBinding
 import androidx.recyclerview.widget.RecyclerView
-import coil.load
+import com.bumptech.glide.Glide
+import com.example.myapplication.R
 
 class PreviewAdapter(
-    var items: MutableList<SelectedMedia>,
+    private var items: MutableList<SelectedMedia>,
     private val onDelete: (Int) -> Unit
 ) : RecyclerView.Adapter<PreviewAdapter.ViewHolder>() {
 
-    class ViewHolder(val binding: ItemMediaPreviewBinding) : RecyclerView.ViewHolder(binding.root) {
-
-    }
+    class ViewHolder(val binding: ItemMediaPreviewBinding) : RecyclerView.ViewHolder(binding.root)
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemMediaPreviewBinding.inflate(
@@ -33,9 +32,12 @@ class PreviewAdapter(
         val binding = holder.binding
 
         if (item.type == MediaType.IMAGE) {
-            binding.imgThumb.load(item.uri) {
-                crossfade(true)
-            }
+            // 使用Glide加载图片
+            Glide.with(binding.imgThumb.context)
+                .load(item.uri)
+                .placeholder(R.drawable.ic_image_placeholder)
+                .error(R.drawable.ic_image_error)
+                .into(binding.imgThumb)
             binding.imgFileIcon.visibility = View.GONE
         } else {
             binding.imgThumb.setImageDrawable(null)
@@ -49,4 +51,18 @@ class PreviewAdapter(
     }
 
     override fun getItemCount() = items.size
+
+    @Suppress("unused")
+    fun updateItems(newItems: MutableList<SelectedMedia>) {
+        items = newItems
+        notifyItemRangeChanged(0, items.size)
+    }
+
+    @Suppress("unused")
+    fun removeItem(position: Int) {
+        if (position in 0 until items.size) {
+            items.removeAt(position)
+            notifyItemRemoved(position)
+        }
+    }
 }

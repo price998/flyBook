@@ -25,7 +25,7 @@ class HistoryAdapter(
     var searchKeyword: String = ""
         set(value) {
             field = value
-            notifyDataSetChanged()
+            notifyItemRangeChanged(0, historyList.size)
         }
 
     //高性能数据更新
@@ -102,7 +102,7 @@ class HistoryAdapter(
                     ForegroundColorSpan(Color.RED),
                     startIndex,
                     startIndex + searchKeyword.length,
-                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
             }
             binding.historyTitle.text = titleSpannable
