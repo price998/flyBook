@@ -13,7 +13,7 @@
     <color name="divider_color">#DEE0E3</color>
     <color name="think_bg">#F5F6F7</color>
     <color name="input_background_gray">#F0F0F0</color>
-    <color name="sidebar_background">#FFF8F6</color>
-    <color name="sidebar_item_selected_text">#5E35B1</color>
+    <color name="sidebar_background">#FFFFFFFF</color>
+    <color name="sidebar_item_selected_text">#1565C0</color>
     <color name="sidebar_item_selected_background">#FFEBE6</color>
 </resources>

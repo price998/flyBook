@@ -268,25 +268,15 @@ class DialogueActivity : AppCompatActivity() {
         binding.historyRecyclerview.apply {
             layoutManager = LinearLayoutManager(this@DialogueActivity)
             adapter = historyAdapter
-            // 添加分割线
-            val divider = DividerItemDecoration(this@DialogueActivity, DividerItemDecoration.VERTICAL)
-            divider.setDrawable(ColorDrawable(android.graphics.Color.parseColor("#EEEEEE")))
-            addItemDecoration(divider)
         }
 
-        // 新对话按钮：创建空对话，清空输入框
+        // 新对话按钮：只是重置界面状态，不实际创建对话
         binding.btnNewChat.setOnClickListener {
             binding.drawerLayout.closeDrawer(GravityCompat.END)
-            // 创建新对话
-            historyViewModel.createNewConversation("新对话") { _ ->
-                Toast.makeText(this, "已创建新对话", Toast.LENGTH_SHORT).show()
-                binding.etInput.text.clear()
-                updateSidebarSelection(isNewChat = true) // 高亮选中状态
-            }
-            // 重置界面
-            Toast.makeText(this, "已创建新对话", Toast.LENGTH_SHORT).show()
+            
             binding.etInput.text.clear()
-            updateSidebarSelection(isNewChat = true)
+            updateSidebarSelection(isNewChat = true) 
+            Toast.makeText(this, "已切换到新对话", Toast.LENGTH_SHORT).show()
         }
         //知识库按钮：仅Toast提示（待实现）
         binding.btnKnowledgeBase.setOnClickListener {
@@ -360,6 +350,9 @@ class DialogueActivity : AppCompatActivity() {
     }
     
     private fun updateSidebarSelection(isNewChat: Boolean = false, isKnowledgeBase: Boolean = false) {
+        binding.btnNewChat.isSelected = isNewChat
+        binding.btnKnowledgeBase.isSelected = isKnowledgeBase
+        
         // 清除历史列表选中状态
         if (isNewChat || isKnowledgeBase) {
              historyAdapter.setSelectedId(null)

@@ -118,12 +118,12 @@ class HistoryAdapter(
       val context = binding.root.context
       val isSelected = history.id == currentConversationId
       
-      val backgroundColor = when {
-          history.id == currentConversationId -> Color.parseColor("#E3F2FD") 
-          history.isPinned -> 0x0D000000 
-          else -> Color.TRANSPARENT
+      val backgroundRes = when {
+          history.id == currentConversationId -> R.drawable.bg_history_item_selected
+          history.isPinned -> R.drawable.bg_history_item_pinned
+          else -> R.drawable.bg_history_item_normal
       }
-      binding.root.setBackgroundColor(backgroundColor)
+      binding.root.setBackgroundResource(backgroundRes)
       
       // 选中时字体颜色变化
       if (isSelected) {
