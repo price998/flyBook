@@ -23,8 +23,7 @@ class XunfeiSpeechRecognizer(private val context: Context) {
         private const val TAG = "XunfeiSpeechRecognizer"
         // 科大讯飞语音识别配置
         private const val APPID = "b4d78b8e"
-        private const val API_SECRET = "YzIwZDIxMTg4YTdjYWJiZjBmZGY2NzBi"
-        private const val API_KEY = "a1f629b6be89cf8557864817f23b939b"
+
     }
     
     private var speechRecognizer: SpeechRecognizer? = null
@@ -161,6 +160,7 @@ class XunfeiSpeechRecognizer(private val context: Context) {
     /**
      * 是否正在识别
      */
+    @Suppress("unused")
     fun isListening(): Boolean = isListening
     
     /**
@@ -201,11 +201,12 @@ class XunfeiSpeechRecognizer(private val context: Context) {
     /**
      * 设置音量变化监听器
      */
-    fun setOnVolumeChangedListener(listener: (Int) -> Unit) {
-        onVolumeChangedListener = listener
-    }
+    @Suppress("unused")
+
     
-    /**
+    /**    fun setOnVolumeChangedListener(listener: (Int) -> Unit) {
+    onVolumeChangedListener = listener
+    }
      * 销毁资源
      */
     fun destroy() {

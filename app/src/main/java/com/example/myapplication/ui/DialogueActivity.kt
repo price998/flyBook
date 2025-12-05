@@ -9,10 +9,12 @@ import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.view.MotionEvent
 import android.view.View
+import android.widget.PopupWindow
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
@@ -369,7 +371,7 @@ class DialogueActivity : AppCompatActivity() {
                                         }
                                     }
 
-                            androidx.appcompat.app.AlertDialog.Builder(
+                            AlertDialog.Builder(
                                             this,
                                             R.style.RoundedDialogTheme
                                     )
@@ -632,12 +634,12 @@ class DialogueActivity : AppCompatActivity() {
     }
 
     private fun showAttachmentOptions() {
-        val view = layoutInflater.inflate(R.layout.dialog_attachment_options, null)
+        val view = layoutInflater.inflate(R.layout.dialog_attachment_options, binding.root, false)
 
         val width = (120 * resources.displayMetrics.density).toInt()
 
         val popupWindow =
-                android.widget.PopupWindow(
+                PopupWindow(
                         view,
                         width,
                         android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -645,7 +647,7 @@ class DialogueActivity : AppCompatActivity() {
                 )
 
         popupWindow.setBackgroundDrawable(
-                android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+                ColorDrawable(android.graphics.Color.TRANSPARENT)
         )
         popupWindow.elevation = 10f
 
@@ -722,9 +724,10 @@ class DialogueActivity : AppCompatActivity() {
     }
 
     /** 设置语音输入的触摸监听器 */
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
     private fun setupVoiceInputListener() {
         // 使用长按交互：按下开始录音，松开停止，上滑取消
-        binding.tvHoldToSpeak.setOnTouchListener { view, event ->
+        binding.tvHoldToSpeak.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     // 按下时开始录音

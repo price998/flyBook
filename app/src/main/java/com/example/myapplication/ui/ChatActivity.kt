@@ -11,6 +11,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.MotionEvent
 import android.view.View
+import android.widget.PopupWindow
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.PickVisualMediaRequest
@@ -580,7 +581,7 @@ class ChatActivity : AppCompatActivity() {
                     }
                 }
 
-        androidx.appcompat.app.AlertDialog.Builder(this, R.style.RoundedDialogTheme)
+        AlertDialog.Builder(this, R.style.RoundedDialogTheme)
                 .setAdapter(adapter) { _, which ->
                     when (which) {
                         0 -> {
@@ -738,12 +739,12 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun showAttachmentOptions() {
-        val view = layoutInflater.inflate(R.layout.dialog_attachment_options, null)
+        val view = layoutInflater.inflate(R.layout.dialog_attachment_options, binding.root, false)
 
         val width = (120 * resources.displayMetrics.density).toInt()
 
         val popupWindow =
-                android.widget.PopupWindow(
+                PopupWindow(
                         view,
                         width,
                         android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -751,7 +752,7 @@ class ChatActivity : AppCompatActivity() {
                 )
 
         popupWindow.setBackgroundDrawable(
-                android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT)
+                ColorDrawable(android.graphics.Color.TRANSPARENT)
         )
         popupWindow.elevation = 10f
 
@@ -888,9 +889,10 @@ class ChatActivity : AppCompatActivity() {
     }
 
     /** 设置语音输入的触摸监听器 */
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
     private fun setupVoiceInputListener() {
         // 使用长按交互：按下开始录音，松开停止，上滑取消
-        binding.tvHoldToSpeak.setOnTouchListener { view, event ->
+        binding.tvHoldToSpeak.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     // 按下时开始录音
