@@ -243,6 +243,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val aiMsg = ChatMessage("", false, isComplete = false)
         currentList.add(aiMsg)
         val aiMsgIndex = currentList.size - 1
+        val aiTimestamp = aiMsg.timestamp
         _messageUpdate.value = MessageUpdateEvent.ItemInserted(aiMsgIndex, isUserMessage = false)
 
         generationJob =
@@ -257,7 +258,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         try {
                             // 更新UI显示正在搜索
                             currentList[aiMsgIndex] =
-                                    ChatMessage("🔍 正在联网搜索相关信息...", false, isComplete = false)
+                                    ChatMessage("🔍 正在联网搜索相关信息...", false, isComplete = false,timestamp = aiTimestamp)
                             _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
 
                             // 执行搜索
@@ -283,7 +284,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             }
 
                             // 清空提示文字，准备开始流式输出
-                            currentList[aiMsgIndex] = ChatMessage("", false, isComplete = false)
+                            currentList[aiMsgIndex] = ChatMessage("", false, isComplete = false,timestamp = aiTimestamp)
                             _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
                         } catch (e: Exception) {
                             Log.e(TAG, "搜索失败", e)
@@ -342,7 +343,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                                         reasoningBuilder.toString().takeIf {
                                                             it.isNotEmpty()
                                                         },
-                                                isComplete = false
+                                                isComplete = false,
+                                                timestamp = aiTimestamp
                                         )
                                 // 通知 Adapter 更新特定位置
                                 _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
@@ -368,7 +370,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                                 reasoningBuilder.toString().takeIf {
                                                     it.isNotEmpty()
                                                 },
-                                        isComplete = true
+                                        isComplete = true,
+                                        timestamp = aiTimestamp
                                 )
                         currentList[aiMsgIndex] = completeMsg
                         _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
@@ -392,7 +395,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                         reasoningContent =
                                                 reasoningBuilder.toString().takeIf {
                                                     it.isNotEmpty()
-                                                }
+                                                },
+                                        timestamp = aiTimestamp
                                 )
                         _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
 
@@ -405,7 +409,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                         reasoningContent =
                                                 reasoningBuilder.toString().takeIf {
                                                     it.isNotEmpty()
-                                                }
+                                                },
+                                        timestamp = aiTimestamp
                                 )
                         // 启动新协程异步保存，使能够立即响应停止状态
                         viewModelScope.launch {
@@ -518,6 +523,124 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     _ocrProgress.value = OCRProgress.Error("解析失败: ${e.message}")
                 }
             }
+        }
+    }
+    // 删除多条消息（比如只删单条 AI 时用）
+    fun deleteMessages(messages: List<ChatMessage>) {
+        if (messages.isEmpty()) return
+        viewModelScope.launch {
+            repository.deleteMessagesByTimestamps(
+                conversationId = conversationId,
+                timestamps = messages.map { it.timestamp }
+            )
+        }
+    }
+
+    // 删除一组：用户问题 + AI 回答
+    fun deleteMessagePair(userMessage: ChatMessage, aiMessage: ChatMessage) {
+        viewModelScope.launch {
+            repository.deleteMessagesByTimestamps(
+                conversationId = conversationId,
+                timestamps = listOf(userMessage.timestamp, aiMessage.timestamp)
+            )
+        }
+    }
+    fun updateMessageLikeState(message: ChatMessage) {
+        if (conversationId.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                repository.updateMessageLikeState(
+                    conversationId = conversationId,
+                    timestamp = message.timestamp,
+                    isLiked = message.isLiked,
+                    isDisliked = message.isDisliked
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "updateMessageLikeState failed", e)
+            }
+        }
+    }
+
+    // 🆕 删除一组消息（问题+回答）
+    fun deleteMessagePair(timestamps: List<Long>) {
+        if (conversationId.isEmpty() || timestamps.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                repository.deleteMessagesByTimestamps(conversationId, timestamps)
+            } catch (e: Exception) {
+                Log.e(TAG, "deleteMessagePair failed", e)
+            }
+        }
+    }
+    // ChatViewModel.kt 里
+    fun debugSeedFakeConversation(rounds: Int = 120) {
+        // 避免重复造
+        if (_messages.value?.isNotEmpty() == true) return
+
+        viewModelScope.launch {
+            // 如果当前没有 conversationId，先创建一个
+            if (conversationId.isEmpty()) {
+                conversationId = repository.createConversation("假数据长对话")
+            }
+
+            val list = _messages.value ?: mutableListOf()
+            val baseTime = System.currentTimeMillis() - 2 * 60 * 60 * 1000L // 从两小时前开始
+            var ts = baseTime
+
+            repeat(rounds) { round ->
+                // 一轮 = 用户 + AI 两条消息
+                val userIndex = round + 1
+
+                // 1. 用户消息
+                val userMsg = ChatMessage(
+                    content = "👤 用户第 ${userIndex} 轮提问：这是一个用于测试长列表和分页加载的假对话数据，第 ${userIndex} 轮。",
+                    isUser = true,
+                    timestamp = ts
+                )
+                ts += 5_000L
+
+                // 2. AI 回复（带 Markdown / 代码块 / 列表，方便测试 Markwon 渲染）
+                val aiContent = buildString {
+                    appendLine("🤖 AI 第 ${userIndex} 轮回复")
+                    appendLine()
+                    appendLine("这一条是用于**测试长列表渲染**和**分页加载**的假数据。")
+                    appendLine()
+                    appendLine("本轮关键信息：")
+                    appendLine("- 轮数：$userIndex")
+                    appendLine("- 时间戳：$ts")
+                    appendLine("- 是否点赞测试：可以点一下底部按钮看看 UI 是否正常更新")
+                    appendLine()
+                    appendLine("下面是一段代码块，测试高亮和换行：")
+                    appendLine("```kotlin")
+                    appendLine("val round = $userIndex")
+                    appendLine("val message = \"fake long conversation for paging\"")
+                    appendLine("println(\"round = \$round, msg = \$message\")")
+                    appendLine("```")
+                    appendLine()
+                    appendLine("再来一段长文本，看看折行效果：")
+                    appendLine("这是一段比较长的中文说明文字，用来测试在 RecyclerView 中多行文本的渲染表现，" +
+                            "同时也可以顺便观察在快速滚动、上拉加载更多时是否存在卡顿、错位等问题。第 ${userIndex} 轮。")
+                }
+
+                val aiMsg = ChatMessage(
+                    content = aiContent,
+                    isUser = false,
+                    isComplete = true,
+                    timestamp = ts
+                )
+                ts += 5_000L
+
+                // 内存列表里也加上，方便当前界面立刻看到
+                list.add(userMsg)
+                list.add(aiMsg)
+
+                // 落到数据库，保证分页用到
+                repository.saveMessage(conversationId, userMsg)
+                repository.saveMessage(conversationId, aiMsg)
+            }
+
+            // 通知 UI 刷新
+            _messages.value = list
         }
     }
 

@@ -20,8 +20,27 @@ interface MessageDao {
     @Query("SELECT * FROM (SELECT * FROM messages WHERE conversationId = :conversationId ORDER BY timestamp DESC LIMIT :limit) ORDER BY timestamp ASC")
     suspend fun getLatestMessages(conversationId: String, limit: Int): List<MessageEntity>
 
-    @Query("DELETE FROM messages") suspend fun deleteAll()
 
-    @Query("DELETE FROM messages WHERE conversationId = :conversationId")
-    suspend fun deleteMessagesByConversation(conversationId: String)
+    // 根据时间戳批量删除指定对话里的消息
+    @Query(
+        "DELETE FROM messages " +
+                "WHERE conversationId = :conversationId AND timestamp IN (:timestamps)"
+    )
+    suspend fun deleteMessagesByTimestamps(
+        conversationId: String,
+        timestamps: List<Long>
+    )
+    @Query(
+        """
+        UPDATE messages 
+        SET isLiked = :isLiked, isDisliked = :isDisliked
+        WHERE conversationId = :conversationId AND timestamp = :timestamp
+        """
+    )
+    suspend fun updateMessageLikeState(
+        conversationId: String,
+        timestamp: Long,
+        isLiked: Boolean,
+        isDisliked: Boolean
+    )
 }

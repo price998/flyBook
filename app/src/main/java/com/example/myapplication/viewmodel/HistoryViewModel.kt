@@ -12,6 +12,7 @@ import com.example.myapplication.repository.HistoryRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.example.myapplication.model.ChatMessage
 
 /**
  * 历史对话列表的 ViewModel
@@ -130,6 +131,60 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
                 }
             } catch (e: Exception) {
                 _errorMessage.value = "搜索失败: ${e.message}"
+            }
+        }
+    }
+    /**
+     * 生成一条长对话假数据（默认 120 轮 = 240 条消息）
+     * 在 IO 线程里通过 ChatRepository 一条条写入，自动维护 messageCount 等字段
+     */
+    fun generateFakeConversation(
+        pairCount: Int = 1000,
+        onResult: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val conversationId = withContext(Dispatchers.IO) {
+                    // 会话标题
+                    val title = "假数据长对话（$pairCount 轮）"
+                    val id = chatRepository.createConversation(title)
+
+                    val baseTime = System.currentTimeMillis() - pairCount * 4_000L
+
+                    for (i in 0 until pairCount) {
+                        val round = i + 1
+
+                        // 用户消息
+                        val userMsg = ChatMessage(
+                            content = "第 $round 轮提问：这是用于测试长列表和分页加载的假数据问题。",
+                            isUser = true,
+                            timestamp = baseTime + i * 4_000L
+                        )
+
+                        // AI 消息（稍微长一点）
+                        val botMsg = ChatMessage(
+                            content = buildString {
+                                append("第 $round 轮回答：这是 AI 的假数据回复，用来测试 RecyclerView 渲染和分页加载性能。\n")
+                                append("这一轮是总共 $pairCount 轮中的第 $round 轮，你可以上拉加载更多历史消息。")
+                            },
+                            isUser = false,
+                            timestamp = baseTime + i * 4_000L + 2_000L
+                        )
+
+                        // 利用已有的 saveMessage，顺带更新会话的 messageCount、lastMessagePreview 等
+                        chatRepository.saveMessage(id, userMsg)
+                        chatRepository.saveMessage(id, botMsg)
+                    }
+
+                    id
+                }
+
+                // 刷新历史列表
+                loadHistory()
+                // 回调给 UI
+                onResult(conversationId)
+            } catch (e: Exception) {
+                _errorMessage.value = "生成假数据失败: ${e.message}"
             }
         }
     }

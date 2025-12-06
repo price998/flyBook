@@ -67,7 +67,9 @@ class ChatRepository(
                 isUser = message.isUser,
                 timestamp = message.timestamp,
                 reasoningContent = message.reasoningContent,
-                isComplete = message.isComplete
+                isComplete = message.isComplete,
+                isLiked = message.isLiked,
+                isDisliked = message.isDisliked
             )
             dao.insertMessage(entity)
             
@@ -88,7 +90,9 @@ class ChatRepository(
                 isUser = entity.isUser,
                 reasoningContent = entity.reasoningContent,
                 isComplete = entity.isComplete,
-                timestamp = entity.timestamp
+                timestamp = entity.timestamp,
+                isLiked = entity.isLiked,
+                isDisliked = entity.isDisliked
             )
         } ?: emptyList()
     }
@@ -100,9 +104,31 @@ class ChatRepository(
                 isUser = entity.isUser,
                 reasoningContent = entity.reasoningContent,
                 isComplete = entity.isComplete,
-                timestamp = entity.timestamp
+                timestamp = entity.timestamp,
+                isLiked = entity.isLiked,
+                isDisliked = entity.isDisliked
             )
         } ?: emptyList()
+    }
+    // 🆕 持久化点赞 / 点踩
+    suspend fun updateMessageLikeState(
+        conversationId: String,
+        timestamp: Long,
+        isLiked: Boolean,
+        isDisliked: Boolean
+    ) {
+        messageDao?.updateMessageLikeState(conversationId, timestamp, isLiked, isDisliked)
+    }
+    // 🆕 删除一组消息（通常是 用户问题 + AI 回答）
+    suspend fun deleteMessagesByTimestamps(
+        conversationId: String,
+        timestamps: List<Long>
+    ) {
+        if (timestamps.isEmpty()) return
+        messageDao?.deleteMessagesByTimestamps(conversationId, timestamps)
+
+        // 如果想同步修正 conversation.messageCount 和 lastMessagePreview，
+        // 可以这里再查一下剩余最后一条消息来更新，这里先简单略过。
     }
 
     // ==================== 网络请求（委托给 ApiClient） ====================

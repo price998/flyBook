@@ -208,7 +208,21 @@ class DialogueActivity : AppCompatActivity() {
                 Toast.makeText(this, "联网搜索已关闭", Toast.LENGTH_SHORT).show()
             }
         }
-        
+        // 侧边栏 - 生成假数据（调试用）
+        binding.btnGenerateFakeData.setOnClickListener {
+            binding.drawerLayout.closeDrawer(GravityCompat.END)
+            Toast.makeText(this, "正在生成假数据对话…", Toast.LENGTH_SHORT).show()
+
+            historyViewModel.generateFakeConversation { conversationId ->
+                // 生成完成后直接跳到 ChatActivity 展示这条长对话
+                val intent = Intent(this@DialogueActivity, ChatActivity::class.java)
+                intent.putExtra(ChatActivity.EXTRA_CONVERSATION_ID, conversationId)
+                // 默认不开启联网搜索
+                intent.putExtra("is_web_search_enabled", false)
+                startActivity(intent)
+            }
+        }
+
         // 点击更多模型按钮
         binding.ivMoreIcon.setOnClickListener { showModelSelectorDialog() }
 

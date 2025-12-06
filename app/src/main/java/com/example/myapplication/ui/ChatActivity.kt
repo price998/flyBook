@@ -58,7 +58,10 @@ import kotlin.math.abs
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.lifecycle.lifecycleScope
 import com.example.myapplication.model.ChatMessage
+import com.google.android.datatransport.BuildConfig
+import kotlinx.coroutines.launch
 
 class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
 
@@ -199,6 +202,20 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
                 addMediaItems(attachments)
             }
         }
+        // 假数据开关（防止每次都重复造）
+        if (BuildConfig.DEBUG) {
+            // 确保先有 conversationId
+            if (viewModel.currentConversationId.isEmpty()) {
+                // 给一个新的空对话
+                lifecycleScope.launch {
+                    val id = viewModel.currentConversationId
+                    // 如果你想指定某个对话，也可以手动传
+                    viewModel.debugSeedFakeConversation(rounds = 150)
+                }
+            } else {
+                viewModel.debugSeedFakeConversation(rounds = 150)
+            }
+        }
     }
 
     /** 设置点击监听器 */
@@ -236,6 +253,29 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
             startActivity(intent)
             finish()
         }
+// 菜单-生成假数据按钮 (侧边栏，仅调试用)
+        // 菜单 - 生成假数据按钮（侧边栏）
+        binding.btnGenerateFakeData.setOnClickListener {
+            binding.chatDrawerLayout.closeDrawers()
+            Toast.makeText(this, "正在生成假数据对话…", Toast.LENGTH_SHORT).show()
+
+            historyViewModel.generateFakeConversation { conversationId ->
+                // 切换当前 ViewModel 到这条长对话
+                viewModel.setConversationId(conversationId)
+                // 更新历史列表选中状态
+                historyAdapter.setSelectedId(conversationId)
+                updateSidebarSelection(isNewChat = false, isKnowledgeBase = false)
+
+                Toast.makeText(this, "假数据对话已生成", Toast.LENGTH_SHORT).show()
+
+                // 滚动到底部，看到最新一轮
+                val size = viewModel.messages.value?.size ?: 0
+                if (size > 0) {
+                    binding.chatMessagesRecyclerview.scrollToPosition(size - 1)
+                }
+            }
+        }
+
 
         binding.ivMore.setOnClickListener { showAttachmentOptions() }
         binding.ivMic.setOnClickListener { toggleInputMode() }
@@ -262,7 +302,7 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
         binding.chatMessagesRecyclerview.apply {
             val linearLayoutManager = LinearLayoutManager(this@ChatActivity).apply {
                 // 列表从底部开始堆叠，最后一条自然贴着底部 / 键盘
-                stackFromEnd = true
+                stackFromEnd = false
             }
             layoutManager = linearLayoutManager
 
@@ -377,6 +417,8 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
                 // 列表从空变为有数据（加载新对话）
                 currentCount > 0 && previousMessageCount == 0 -> {
                     chatMessageAdapter.notifyItemRangeInserted(0, currentCount)
+                    // 这批是从数据库加载的历史消息，不需要打字机动画
+                    chatMessageAdapter.markMessagesAsAnimated(0, currentCount)
                     // 滚动到底部
                     binding.chatMessagesRecyclerview.post {
                         binding.chatMessagesRecyclerview.scrollToPosition(currentCount - 1)
@@ -414,34 +456,57 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
             when (event) {
                 is MessageUpdateEvent.ItemInserted -> {
                     chatMessageAdapter.notifyItemInserted(event.position)
-                    // 只在 AI 消息插入时滚动，此时用户消息和 AI 消息都已在列表中
-                    if (!event.isUserMessage) {
-                        shouldAutoScroll = true
-                        if (!isUserDragging) {
-                            smoothScrollToBottom(force = true)
-                        }
+
+                    // 只有当前处于“自动跟随”状态，才让新消息把列表带到底部
+                    if (!isUserDragging && shouldAutoScroll) {
+                        binding.chatMessagesRecyclerview.scrollToPosition(
+                            chatMessageAdapter.itemCount - 1
+                        )
                     }
                 }
+
 
                 is MessageUpdateEvent.ItemChanged -> {
                     chatMessageAdapter.notifyItemChanged(
                         event.position,
                         ChatMessageAdapter.PAYLOAD_CONTENT_UPDATE
                     )
-                    // 不再 smoothScroll，只在「已经在底部」时用普通 scroll 保持贴底
+
+                    // 如果用户已经手动滑走，就完全不要动他的视图
+                    if (!shouldAutoScroll || isUserDragging) return@observe
+
                     val rv = binding.chatMessagesRecyclerview
-                    val lm = rv.layoutManager as? LinearLayoutManager ?: return@observe
-                    val lastVisible = lm.findLastVisibleItemPosition()
-                    val itemCount = chatMessageAdapter.itemCount
-                    val atBottom = itemCount > 0 && lastVisible >= itemCount - 1
-                    if (atBottom) {
-                        rv.scrollToPosition(itemCount - 1)
+
+                    rv.post {
+                        // 三个值分别是：
+                        // extent: 当前屏幕（可见区域）的高度
+                        // range : 整个列表内容的总高度
+                        // offset: 当前已滚动的偏移量
+                        val extent = rv.computeVerticalScrollExtent()
+                        val range = rv.computeVerticalScrollRange()
+                        val offset = rv.computeVerticalScrollOffset()
+
+                        // diff = 底部还差多少像素
+                        val diff = range - extent - offset
+
+                        if (diff > 0) {
+                            // 给个上限，防止意外大跳（比如布局刚刷新）
+                            val maxAutoScroll = (80 * resources.displayMetrics.density).toInt()
+                            val dy = diff.coerceAtMost(maxAutoScroll)
+
+                            // 真正补齐到底部
+                            rv.scrollBy(0, dy)
+                        }
                     }
                 }
+
+
 
                 is MessageUpdateEvent.HistoryLoaded -> {
                     binding.swipeRefreshLayout.isRefreshing = false
                     chatMessageAdapter.notifyItemRangeInserted(0, event.count)
+                    // 顶部新插入的是更早的历史消息，同样不需要打字机动画
+                    chatMessageAdapter.markMessagesAsAnimated(0, event.count)
                     binding.chatMessagesRecyclerview.scrollToPosition(event.count)
                     Toast.makeText(this, "已加载 ${event.count} 条历史消息", Toast.LENGTH_SHORT).show()
                 }
@@ -561,7 +626,7 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
     private fun toggleNetworkSearchBackground() {
         isNetworkSearchEnabled = !isNetworkSearchEnabled
         binding.layoutWebSearch.isSelected = isNetworkSearchEnabled
-        
+
         // 重要：通知 ViewModel 搜索状态变化
         viewModel.toggleSearch(isNetworkSearchEnabled)
 
@@ -573,12 +638,9 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
             Toast.makeText(this, "联网搜索已开启", Toast.LENGTH_SHORT).show()
         } else {
             // 关闭联网搜索时，根据输入内容恢复发送按钮样式
-            val content = binding.etInput.text.toString().trim()
-            if (content.isNotEmpty()) {
-                binding.ivSend.setBackgroundResource(R.drawable.rounded_corner_blue_background)
-                binding.ivSend.setColorFilter(ContextCompat.getColor(this, R.color.white))
-            }
-            Toast.makeText(this, "联网搜索已关闭", Toast.LENGTH_SHORT).show()
+                binding.ivSend.background = null
+                binding.ivSend.clearColorFilter()
+                Toast.makeText(this, "联网搜索已关闭", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -592,7 +654,7 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
             onItemClick = { history ->
                 // Handle history item click - 切换到选中的对话
                 binding.chatDrawerLayout.closeDrawers()
-                
+
                 // 设置新的对话ID，ViewModel会自动清空当前列表并加载新对话的消息
                 viewModel.setConversationId(history.id)
                 // 更新选中状态
@@ -735,6 +797,9 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
 
             val imageUris = selectedItems.filter { it.type == MediaType.IMAGE }.map { it.uri }
             val fileUris = selectedItems.filter { it.type == MediaType.FILE }.map { it.uri }
+            // ✅ 用户主动发出问题：无论当前在不在底部，都恢复自动跟随，并准备滚到底部
+            shouldAutoScroll = true
+            isUserDragging = false
 
             if (imageUris.isEmpty() && fileUris.isEmpty()) {
                 // 只有文本，直接发送
@@ -962,19 +1027,11 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
                     override fun afterTextChanged(s: Editable?) {
                         val content = s.toString().trim()
                         // 只有在未开启联网搜索时，才根据输入内容改变发送按钮颜色
-                        if (!isNetworkSearchEnabled) {
-                            if (content.isNotEmpty()) {
-                                binding.ivSend.setBackgroundResource(
-                                        R.drawable.rounded_corner_blue_background
-                                )
-                                binding.ivSend.setColorFilter(
-                                        ContextCompat.getColor(this@ChatActivity, R.color.white)
-                                )
-                            } else {
+
                                 binding.ivSend.background = null
                                 binding.ivSend.clearColorFilter()
-                            }
-                        }
+
+
                     }
                 }
         )
@@ -1204,6 +1261,7 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
 
         list[index] = newMsg
         chatMessageAdapter.notifyItemChanged(index)
+        viewModel.updateMessageLikeState(newMsg)
     }
 
     // 重新加载：找到这条 AI 回复上面最近的用户问题，用它重新发起一次请求
@@ -1220,13 +1278,44 @@ class ChatActivity : AppCompatActivity() ,MessageActionsBottomSheet.Listener{
     }
 
     // 删除当前这条 AI 消息（如果你有数据库，也可以在 ViewModel 里同步删）
+    // 删除这一组：上面最近的一条用户问题 + 当前这条 AI 回复
+    // 🆕 成对删除：删除这条 AI 以及它上面最近的一条用户消息
     private fun deleteMessage(message: ChatMessage) {
         val list = chatMessageAdapter.messages
         val index = list.indexOf(message)
         if (index == -1) return
-        list.removeAt(index)
-        chatMessageAdapter.notifyItemRemoved(index)
+
+        // 只允许删除 AI 消息，如果你也支持删用户消息可以放开这个判断
+        // if (message.isUser) return
+
+        val timestampsToDelete = mutableListOf<Long>()
+        val positionsToRemove = mutableListOf<Int>()
+
+        // 1. 当前这条（通常是 AI 回复）
+        timestampsToDelete.add(list[index].timestamp)
+        positionsToRemove.add(index)
+
+        // 2. 向上找最近的一条用户消息，当作「这条回复对应的问题」
+        val userIndex = (index - 1 downTo 0).firstOrNull { list[it].isUser }
+        if (userIndex != null) {
+            timestampsToDelete.add(list[userIndex].timestamp)
+            positionsToRemove.add(userIndex)
+        }
+
+        // 先按位置从大到小删除，避免下标错乱
+        positionsToRemove
+            .distinct()
+            .sortedDescending()
+            .forEach { pos ->
+                list.removeAt(pos)
+                chatMessageAdapter.notifyItemRemoved(pos)
+            }
+
+        // 同步删除到数据库
+        viewModel.deleteMessagePair(timestampsToDelete)
     }
+
+
 // ====== MessageActionsBottomSheet.Listener 实现 ======
 
     override fun onCopy(message: ChatMessage) {

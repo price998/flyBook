@@ -55,6 +55,20 @@ class ChatMessageAdapter(
     private val animatedMessageIds: MutableSet<Long> = mutableSetOf<Long>().apply {
         addAll(messages.filter { !it.isUser }.map { it.timestamp })
     }
+    /**
+     * 将指定范围内的 AI 消息标记为「已经播放过动画」，
+     * 用于历史消息（包括初次进页面的最近消息、上拉加载的更早消息）。
+     */
+    fun markMessagesAsAnimated(fromPosition: Int, count: Int) {
+        if (count <= 0) return
+        val end = (fromPosition + count).coerceAtMost(messages.size)
+        for (i in fromPosition until end) {
+            val m = messages[i]
+            if (!m.isUser) {
+                animatedMessageIds.add(m.timestamp)
+            }
+        }
+    }
 
     /**
      * 记录哪些消息是“流式生成”的：

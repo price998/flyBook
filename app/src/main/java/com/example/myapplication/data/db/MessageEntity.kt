@@ -18,5 +18,7 @@ data class MessageEntity(
     
     // 🆕 支持图片、文件、语音
     val msgType: String = "text",   // text, image, voice, file
-    val audioDuration: Int = 0      // 语音时长(秒)
+    val audioDuration: Int = 0  ,    // 语音时长(秒)
+    val isLiked: Boolean = false,
+    val isDisliked: Boolean = false
 )
