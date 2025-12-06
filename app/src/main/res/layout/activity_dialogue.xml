@@ -302,7 +302,8 @@
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:paddingHorizontal="24dp"
-            android:paddingTop="32dp"
+            android:paddingTop="35dp"
+          android:layout_marginTop="20dp"
             android:paddingBottom="8dp">
 
             <TextView
@@ -340,7 +341,8 @@
             android:textSize="15sp"
             android:drawablePadding="12dp"
             app:drawableStartCompat="@drawable/ic_new_chat"
-            android:background="@drawable/bg_sidebar_button" />
+            android:background="@drawable/bg_sidebar_button"
+            android:backgroundTint="#f0f0f0" />
 
         <!-- Knowledge Base -->
         <TextView
@@ -356,7 +358,8 @@
             android:textSize="15sp"
             android:drawablePadding="12dp"
             app:drawableStartCompat="@drawable/ic_book"
-            android:background="@drawable/bg_sidebar_button" />
+            android:background="@drawable/bg_sidebar_button"
+            android:backgroundTint="#F0F0F0" />
 
         <View
             android:layout_width="match_parent"
@@ -373,7 +376,7 @@
             android:paddingTop="4dp"
             android:paddingBottom="4dp"
             android:text="@string/menu_history_dialogue"
-            android:textColor="#8F959E"
+            android:textColor="#000000"
             android:textSize="14sp" />
 
         <!-- History List -->

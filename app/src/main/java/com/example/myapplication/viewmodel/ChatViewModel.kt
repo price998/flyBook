@@ -184,6 +184,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         Log.d(TAG, "停止生成请求")
         stopGenerationFlag = true
         generationJob?.cancel() // 取消协程，立即停止
+        Log.d(TAG, "生成任务已取消，stopGenerationFlag = $stopGenerationFlag")
     }
 
     fun sendMessage(content: String) {
@@ -219,7 +220,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         // 1. 添加用户消息
         val userMsg = ChatMessage(content, true)
         currentList.add(userMsg)
-        _messageUpdate.value = MessageUpdateEvent.ItemInserted(currentList.size - 1)
+        _messageUpdate.value = MessageUpdateEvent.ItemInserted(currentList.size - 1, isUserMessage = true)
 
         // 保存用户消息到数据库
         viewModelScope.launch {
@@ -242,7 +243,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val aiMsg = ChatMessage("", false, isComplete = false)
         currentList.add(aiMsg)
         val aiMsgIndex = currentList.size - 1
-        _messageUpdate.value = MessageUpdateEvent.ItemInserted(aiMsgIndex)
+        _messageUpdate.value = MessageUpdateEvent.ItemInserted(aiMsgIndex, isUserMessage = false)
 
         generationJob =
                 viewModelScope.launch {
@@ -325,6 +326,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                             // 批量更新：每收到 BATCH_SIZE 个字符才更新一次UI
                             if (charCount >= BATCH_SIZE) {
                                 charCount = 0
+                                
+                                // 再次检查停止标志，避免在更新UI前被中断
+                                if (stopGenerationFlag) {
+                                    Log.d(TAG, "批量更新前检测到停止标志，终止生成")
+                                    throw java.util.concurrent.CancellationException("用户停止生成")
+                                }
 
                                 // 更新列表中的消息对象（流式输出中，标记为未完成）
                                 currentList[aiMsgIndex] =
@@ -342,6 +349,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                                 // 添加延迟以控制打字机速度
                                 delay(TYPING_DELAY_MS)
+                                
+                                // 延迟后再次检查停止标志
+                                if (stopGenerationFlag) {
+                                    Log.d(TAG, "延迟后检测到停止标志，终止生成")
+                                    throw java.util.concurrent.CancellationException("用户停止生成")
+                                }
                             }
                         }
 
@@ -776,7 +789,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 }
 
 sealed class MessageUpdateEvent {
-    data class ItemInserted(val position: Int) : MessageUpdateEvent()
+    data class ItemInserted(val position: Int, val isUserMessage: Boolean = false) : MessageUpdateEvent()
     data class ItemChanged(val position: Int) : MessageUpdateEvent()
     data class HistoryLoaded(val count: Int) : MessageUpdateEvent()
     data object NoMoreHistory : MessageUpdateEvent()
