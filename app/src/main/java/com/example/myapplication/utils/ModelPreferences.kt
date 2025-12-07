@@ -9,6 +9,7 @@ import com.example.myapplication.model.ModelRegistry
 object ModelPreferences {
     private const val PREFS_NAME = "model_preferences"
     private const val KEY_SELECTED_MODEL_ID = "selected_model_id"
+    private const val KEY_WEB_SEARCH_ENABLED = "web_search_enabled"
 
     private fun getPreferences(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -29,5 +30,15 @@ object ModelPreferences {
         } else {
             ModelRegistry.DEFAULT_MODEL
         }
+    }
+
+    /** 保存联网搜索状态 */
+    fun saveWebSearchEnabled(context: Context, enabled: Boolean) {
+        getPreferences(context).edit().putBoolean(KEY_WEB_SEARCH_ENABLED, enabled).apply()
+    }
+
+    /** 获取联网搜索状态 */
+    fun getWebSearchEnabled(context: Context): Boolean {
+        return getPreferences(context).getBoolean(KEY_WEB_SEARCH_ENABLED, false)
     }
 }

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <!-- Sidebar Header: Logo and Search -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="35dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="飞书知识问答"
+            android:textColor="@color/black"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <ImageView
+            android:id="@+id/btn_sidebar_search"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_search"
+            app:tint="@color/black"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="搜索" />
+    </LinearLayout>
+
+    <!-- Create New Chat -->
+    <TextView
+        android:id="@+id/btn_new_chat"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="4dp"
+        android:paddingHorizontal="16dp"
+        android:gravity="center_vertical"
+        android:text="@string/menu_create_new_chat"
+        android:textColor="@color/black"
+        android:textSize="15sp"
+        android:drawablePadding="12dp"
+        app:drawableStartCompat="@drawable/ic_new_chat"
+        android:background="@drawable/bg_sidebar_button"
+        android:backgroundTint="#F0F0F0" />
+
+    <!-- Knowledge Base -->
+    <TextView
+        android:id="@+id/btn_knowledge_base"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        android:paddingHorizontal="16dp"
+        android:gravity="center_vertical"
+        android:text="@string/menu_my_knowledge_base"
+        android:textColor="@color/black"
+        android:textSize="15sp"
+        android:drawablePadding="12dp"
+        app:drawableStartCompat="@drawable/ic_book"
+        android:background="@drawable/bg_sidebar_button"
+        android:backgroundTint="#F0F0F0" />
+
+    <!-- Debug: Generate fake conversation data -->
+    <TextView
+        android:id="@+id/btn_generate_fake_data"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        android:paddingHorizontal="16dp"
+        android:gravity="center_vertical"
+        android:text="生成假数据（调试）"
+        android:textColor="@color/black"
+        android:textSize="15sp"
+        android:drawablePadding="12dp"
+        app:drawableStartCompat="@drawable/ic_new_chat"
+        android:background="@drawable/bg_sidebar_button"
+        android:backgroundTint="#F0F0F0" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="4dp"
+        android:background="#EEEEEE" />
+
+    <!-- History Section Title -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="24dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="4dp"
+        android:text="@string/menu_history_dialogue"
+        android:textColor="#000000"
+        android:textSize="14sp" />
+
+</LinearLayout>

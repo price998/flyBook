@@ -84,6 +84,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     // 设置对话ID（从Activity传入）
     fun setConversationId(id: String) {
         if (conversationId != id) {
+            // 先取消正在进行的生成任务
+            stopGeneration()
+            
             conversationId = id
             // 清空当前消息列表
             val currentList = _messages.value ?: mutableListOf()
@@ -256,6 +259,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     if (_isSearchEnabled.value == true) {
                         Log.d(TAG, "Starting web search for: $content")
                         try {
+                            // 检查索引是否有效
+                            if (aiMsgIndex >= currentList.size) {
+                                Log.w(TAG, "搜索开始时aiMsgIndex超出范围，对话可能已切换")
+                                return@launch
+                            }
+                            
                             // 更新UI显示正在搜索
                             currentList[aiMsgIndex] =
                                     ChatMessage("🔍 正在联网搜索相关信息...", false, isComplete = false,timestamp = aiTimestamp)
@@ -283,6 +292,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 }
                             }
 
+                            // 检查索引是否有效
+                            if (aiMsgIndex >= currentList.size) {
+                                Log.w(TAG, "搜索完成时aiMsgIndex超出范围，对话可能已切换")
+                                return@launch
+                            }
+                            
                             // 清空提示文字，准备开始流式输出
                             currentList[aiMsgIndex] = ChatMessage("", false, isComplete = false,timestamp = aiTimestamp)
                             _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
@@ -334,6 +349,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                     throw java.util.concurrent.CancellationException("用户停止生成")
                                 }
 
+                                // 检查索引是否有效（防止对话切换导致列表被清空）
+                                if (aiMsgIndex >= currentList.size) {
+                                    Log.w(TAG, "aiMsgIndex超出范围，对话可能已切换，停止更新")
+                                    throw java.util.concurrent.CancellationException("对话已切换")
+                                }
+
                                 // 更新列表中的消息对象（流式输出中，标记为未完成）
                                 currentList[aiMsgIndex] =
                                         ChatMessage(
@@ -362,6 +383,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
                         // 流式输出完成，标记消息为完成状态
                         Log.d(TAG, "流式输出完成")
+                        
+                        // 检查索引是否有效
+                        if (aiMsgIndex >= currentList.size) {
+                            Log.w(TAG, "流式输出完成时aiMsgIndex超出范围，对话可能已切换")
+                            return@launch
+                        }
+                        
                         val completeMsg =
                                 ChatMessage(
                                         content = fullResponseBuilder.toString(),
@@ -385,6 +413,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         } else {
                             fullResponseBuilder.append("\n[Error: ${e.message}]")
                             Log.e(TAG, "流式输出错误", e)
+                        }
+
+                        // 检查索引是否有效
+                        if (aiMsgIndex >= currentList.size) {
+                            Log.w(TAG, "异常处理时aiMsgIndex超出范围，对话可能已切换")
+                            return@launch
                         }
 
                         currentList[aiMsgIndex] =
@@ -525,26 +559,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-    // 删除多条消息（比如只删单条 AI 时用）
-    fun deleteMessages(messages: List<ChatMessage>) {
-        if (messages.isEmpty()) return
-        viewModelScope.launch {
-            repository.deleteMessagesByTimestamps(
-                conversationId = conversationId,
-                timestamps = messages.map { it.timestamp }
-            )
-        }
-    }
-
-    // 删除一组：用户问题 + AI 回答
-    fun deleteMessagePair(userMessage: ChatMessage, aiMessage: ChatMessage) {
-        viewModelScope.launch {
-            repository.deleteMessagesByTimestamps(
-                conversationId = conversationId,
-                timestamps = listOf(userMessage.timestamp, aiMessage.timestamp)
-            )
-        }
-    }
+//    // 删除多条消息（比如只删单条 AI 时用）
+//    fun deleteMessages(messages: List<ChatMessage>) {
+//        if (messages.isEmpty()) return
+//        viewModelScope.launch {
+//            repository.deleteMessagesByTimestamps(
+//                conversationId = conversationId,
+//                timestamps = messages.map { it.timestamp }
+//            )
+//        }
+//    }
+//
+//    // 删除一组：用户问题 + AI 回答
+//    fun deleteMessagePair(userMessage: ChatMessage, aiMessage: ChatMessage) {
+//        viewModelScope.launch {
+//            repository.deleteMessagesByTimestamps(
+//                conversationId = conversationId,
+//                timestamps = listOf(userMessage.timestamp, aiMessage.timestamp)
+//            )
+//        }
+//    }
     fun updateMessageLikeState(message: ChatMessage) {
         if (conversationId.isEmpty()) return
         viewModelScope.launch {

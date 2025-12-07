@@ -52,7 +52,7 @@
             android:id="@+id/swipe_refresh_layout"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            app:layout_constraintBottom_toTopOf="@id/layout_web_search"
+            app:layout_constraintBottom_toTopOf="@id/include_bottom_bar"
             app:layout_constraintTop_toBottomOf="@id/layout_header">
 
             <androidx.recyclerview.widget.RecyclerView
@@ -63,199 +63,17 @@
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
 
-        <!-- Input Area (Copied structure from activity_main.xml) -->
-
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/layout_web_search"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:layout_marginStart="16dp"
-            android:background="@drawable/bg_web_search_button"
-            android:clickable="true"
-            android:focusable="true"
-            android:paddingHorizontal="10dp"
-            app:layout_constraintBottom_toTopOf="@+id/layout_input"
-            app:layout_constraintStart_toStartOf="parent">
-
-            <ImageView
-                android:id="@+id/iv_web_search_icon"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:contentDescription="@string/content_description_web_search_icon"
-                android:src="@drawable/ic_earth"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
-
-            <TextView
-                android:id="@+id/tv_web_search_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/web_search_text"
-                android:textColor="@color/black"
-                android:textSize="14sp"
-                android:textStyle="normal"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toEndOf="@+id/iv_web_search_icon"
-                app:layout_constraintTop_toTopOf="parent" />
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <ImageView
-            android:id="@+id/iv_more_icon"
-            android:layout_width="38dp"
-            android:layout_height="35dp"
-            android:layout_marginStart="8dp"
-            android:src="@drawable/ic_more_circle"
-            app:layout_constraintBottom_toTopOf="@+id/layout_input"
-            app:layout_constraintStart_toEndOf="@+id/layout_web_search"
-            app:layout_constraintTop_toTopOf="@+id/layout_web_search"
-            app:layout_constraintVertical_bias="1.0" />
-
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/layout_input"
+        <!-- Web Search & Model Switch -->
+        <include
+            android:id="@+id/include_bottom_bar"
+            layout="@layout/layout_chat_bottom_bar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="6dp"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent">
-
-            <!-- Preview List for Images/Files -->
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_preview"
-                android:layout_width="match_parent"
-                android:layout_height="80dp"
-                android:orientation="horizontal"
-                android:visibility="gone"
-                app:layout_constraintBottom_toTopOf="@+id/input_box_container"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                android:layout_marginBottom="8dp"/>
-
-            <!-- Input Box -->
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/input_box_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_input_box"
-                android:minHeight="50dp"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="8dp"
-                android:layout_marginBottom="12dp"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
-
-                <!-- Left: Mic/Keyboard Button -->
-                <ImageView
-                    android:id="@+id/iv_mic"
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:src="@drawable/ic_mic"
-                    app:tint="@android:color/black"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    android:contentDescription="@string/content_description_voice" />
-
-                <!-- Middle: Input Text Box -->
-                <EditText
-                    android:id="@+id/et_input"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_marginEnd="12dp"
-                    android:background="@null"
-                    android:hint="@string/input_hint"
-                    android:textColor="@color/black"
-                    android:textColorHint="#8F959E"
-                    android:textSize="16sp"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toStartOf="@+id/iv_more"
-                    app:layout_constraintStart_toEndOf="@+id/iv_mic"
-                    app:layout_constraintTop_toTopOf="parent"
-                    android:inputType="textMultiLine"
-                    android:maxLines="4"
-                    android:autofillHints="" />
-                
-                <!-- Hold to speak mode -->
-                <TextView
-                    android:id="@+id/tv_hold_to_speak"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_marginStart="12dp"
-                    android:layout_marginEnd="12dp"
-                    android:gravity="center"
-                    android:text="@string/mic_hint"
-                    android:textColor="#8F959E"
-                    android:textSize="16sp"
-                    android:visibility="gone"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toStartOf="@+id/iv_more"
-                    app:layout_constraintStart_toEndOf="@+id/iv_mic"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <!-- Right: Upload Picture Button -->
-                <ImageView
-                    android:id="@+id/iv_more"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:layout_marginEnd="12dp"
-                    android:src="@drawable/ic_upload_picture"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toStartOf="@+id/divider_send"
-                    app:layout_constraintTop_toTopOf="parent"
-                    android:contentDescription="@string/content_description_add" />
-
-                <!-- Divider between More Button and Send Button -->
-                <View
-                    android:id="@+id/divider_send"
-                    android:layout_width="1dp"
-                    android:layout_height="20dp"
-                    android:layout_marginEnd="8dp"
-                    android:background="#8F959E"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toStartOf="@+id/layout_send_stop"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <!-- Send/Stop Button Container -->
-                <FrameLayout
-                    android:id="@+id/layout_send_stop"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_marginEnd="12dp"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="parent">
-
-                    <ImageView
-                        android:id="@+id/iv_send"
-                        android:layout_width="28dp"
-                        android:layout_height="28dp"
-                        android:src="@drawable/ic_send"
-                        app:tint="#8F959E"
-                        android:layout_gravity="center"
-                        android:contentDescription="@string/content_description_send" />
-
-                    <ImageView
-                        android:id="@+id/iv_stop"
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:padding="2dp"
-                        android:src="@drawable/ic_media_pause"
-                        app:tint="#000000"
-                        android:visibility="gone"
-                        android:layout_gravity="center"
-                        android:contentDescription="@string/content_description_stop" />
-                </FrameLayout>
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <!-- Sidebar -->
     <LinearLayout
@@ -269,113 +87,17 @@
         android:focusable="true"
         android:paddingTop="0dp">
 
-        <!-- Sidebar Header: Logo and Search -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingHorizontal="24dp"
-            android:paddingTop="35dp"
-            android:paddingBottom="8dp">
+        <include
+            android:id="@+id/include_sidebar"
+            layout="@layout/include_sidebar_common" />
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="飞书知识问答"
-                android:textColor="@color/black"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <ImageView
-                android:id="@+id/btn_sidebar_search"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@drawable/ic_search"
-                app:tint="@color/black"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:focusable="true"
-                android:contentDescription="搜索" />
-        </LinearLayout>
-
-        <!-- Create New Chat -->
-        <TextView
-            android:id="@+id/btn_new_chat"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginTop="4dp"
-            android:paddingHorizontal="16dp"
-            android:gravity="center_vertical"
-            android:text="@string/menu_create_new_chat"
-            android:textColor="@color/black"
-            android:textSize="15sp"
-            android:drawablePadding="12dp"
-            app:drawableStartCompat="@drawable/ic_new_chat"
-            android:background="@drawable/bg_sidebar_button"
-            android:backgroundTint="#F0F0F0" />
-
-        <!-- Knowledge Base -->
-        <TextView
-            android:id="@+id/btn_knowledge_base"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginTop="8dp"
-            android:paddingHorizontal="16dp"
-            android:gravity="center_vertical"
-            android:text="@string/menu_my_knowledge_base"
-            android:textColor="@color/black"
-            android:textSize="15sp"
-            android:drawablePadding="12dp"
-            app:drawableStartCompat="@drawable/ic_book"
-            android:background="@drawable/bg_sidebar_button"
-            android:backgroundTint="#F0F0F0" />
-        <!-- Debug: Generate fake conversation data -->
-        <TextView
-            android:id="@+id/btn_generate_fake_data"
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
-            android:layout_marginHorizontal="16dp"
-            android:layout_marginTop="8dp"
-            android:paddingHorizontal="16dp"
-            android:gravity="center_vertical"
-            android:text="生成假数据（调试）"
-            android:textColor="@color/black"
-            android:textSize="15sp"
-            android:drawablePadding="12dp"
-            app:drawableStartCompat="@drawable/ic_new_chat"
-            android:background="@drawable/bg_sidebar_button"
-            android:backgroundTint="#F0F0F0" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="4dp"
-            android:background="#EEEEEE" />
-
-        <!-- History Section Title -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingStart="24dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:text="@string/menu_history_dialogue"
-            android:textColor="#000000"
-            android:textSize="14sp" />
-
-        <!-- History List -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/history_recyclerview"
+        <!-- History List (Fragment) -->
+        <androidx.fragment.app.FragmentContainerView
+            android:id="@+id/history_fragment_container"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:scrollbars="vertical"
-            android:overScrollMode="never" />
+            android:name="com.example.myapplication.ui.HistoryFragment" />
 
     </LinearLayout>
 

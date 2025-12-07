@@ -87,9 +87,9 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
-     * 删除对话（预留功能）
+     * 删除对话
+     * 在 HistoryFragment 长按菜单中调用
      */
-    @Suppress("unused")
     fun deleteConversation(conversationId: String) {
         viewModelScope.launch {
             try {
@@ -102,9 +102,9 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
-     * 切换置顶状态（预留功能）
+     * 切换置顶状态
+     * 在 HistoryFragment 长按菜单中调用
      */
-    @Suppress("unused")
     fun togglePin(conversationId: String, currentIsPinned: Boolean) {
         viewModelScope.launch {
             try {
