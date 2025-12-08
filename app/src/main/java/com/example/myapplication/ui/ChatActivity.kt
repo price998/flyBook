@@ -121,11 +121,32 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
             setNetworkSearchEnabled(true) // 使用基类方法
         }
 
-        // 处理初始问题（在搜索状态设置之后）
+        // 处理初始问题与附件（需在搜索状态设置之后）
         val initialQuestion = intent.getStringExtra(EXTRA_INITIAL_QUESTION)
-        initialQuestion?.takeIf { it.isNotBlank() }?.let { question ->
-            if (savedInstanceState == null && (viewModel.messages.value?.isEmpty() == true)) {
-                viewModel.sendMessage(question)
+        val imageUriStrings = intent.getStringArrayListExtra("image_uris")
+        val fileUriStrings = intent.getStringArrayListExtra("file_uris")
+        val hasInitialAttachments =
+            !imageUriStrings.isNullOrEmpty() || !fileUriStrings.isNullOrEmpty()
+        val shouldAutoSendInitialPayload =
+            savedInstanceState == null && (viewModel.messages.value?.isEmpty() == true)
+
+        if (shouldAutoSendInitialPayload &&
+            (!initialQuestion.isNullOrBlank() || hasInitialAttachments)) {
+            autoSendInitialPayload(
+                initialQuestion,
+                imageUriStrings?.toList() ?: emptyList(),
+                fileUriStrings?.toList() ?: emptyList()
+            )
+        } else if (hasInitialAttachments) {
+            val attachments = mutableListOf<SelectedMedia>()
+            imageUriStrings?.forEach { uriString ->
+                attachments.add(SelectedMedia(android.net.Uri.parse(uriString), MediaType.IMAGE))
+            }
+            fileUriStrings?.forEach { uriString ->
+                attachments.add(SelectedMedia(android.net.Uri.parse(uriString), MediaType.FILE))
+            }
+            if (attachments.isNotEmpty()) {
+                addMediaItems(attachments)
             }
         }
 
@@ -136,21 +157,6 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
         // 根据初始状态设置 UI
         updateInputModeUI()
 
-        // 处理从DialogueActivity传递过来的附件
-        val imageUris = intent.getStringArrayListExtra("image_uris")
-        val fileUris = intent.getStringArrayListExtra("file_uris")
-        if (!imageUris.isNullOrEmpty() || !fileUris.isNullOrEmpty()) {
-            val attachments = mutableListOf<SelectedMedia>()
-            imageUris?.forEach { uriString ->
-                attachments.add(SelectedMedia(android.net.Uri.parse(uriString), MediaType.IMAGE))
-            }
-            fileUris?.forEach { uriString ->
-                attachments.add(SelectedMedia(android.net.Uri.parse(uriString), MediaType.FILE))
-            }
-            if (attachments.isNotEmpty()) {
-                addMediaItems(attachments)
-            }
-        }
         // 假数据开关（防止每次都重复造）
         if (BuildConfig.DEBUG) {
             // 确保先有 conversationId
@@ -464,6 +470,30 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
                     Toast.makeText(this, "没有更多历史消息了", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+
+    private fun autoSendInitialPayload(
+        initialQuestion: String?,
+        imageUriStrings: List<String>,
+        fileUriStrings: List<String>
+    ) {
+        val question = initialQuestion?.trim().orEmpty()
+        val hasQuestion = question.isNotEmpty()
+        val imageUris = imageUriStrings.map { android.net.Uri.parse(it) }
+        val fileUris = fileUriStrings.map { android.net.Uri.parse(it) }
+
+        if (!hasQuestion && imageUris.isEmpty() && fileUris.isEmpty()) {
+            return
+        }
+
+        if (imageUris.isEmpty() && fileUris.isEmpty()) {
+            viewModel.sendMessage(question)
+        } else {
+            if (imageUris.isNotEmpty()) {
+                showOCRProgressDialog()
+            }
+            viewModel.sendMessageWithAttachments(question, imageUris, fileUris)
         }
     }
 
