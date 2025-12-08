@@ -1,6 +1,6 @@
 *.iml
 .gradle
-/local.properties
+# /local.properties  # 已注释：需要上传此文件供团队测试
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
