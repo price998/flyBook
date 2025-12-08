@@ -1,6 +1,7 @@
 package com.example.myapplication.network
 
-import com.example.myapplication.model.*
+import com.example.myapplication.network.model.*
+import com.example.myapplication.config.ModelConfig
 import kotlinx.coroutines.flow.Flow
 
 /**

@@ -1,10 +1,10 @@
 package com.example.myapplication.network
 
+import com.example.myapplication.BuildConfig
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -26,10 +26,17 @@ interface WebSearchService {
  * 真实的搜索服务实现 - 使用 Serper.dev (Google Search API)
  */
 class SerperWebSearchService : WebSearchService {
-    private val client = OkHttpClient()
+    // 复用共享的 OkHttpClient，避免资源浪费
+    private val client = HttpClientProvider.client
     
-    // 用户提供的 Serper API Key
-    private val apiKey = "302494e56e67fc54c80ffb7e5b3c264d563b8c60" 
+    // 从 BuildConfig 读取 Serper API Key（安全存储）
+    private val apiKey: String by lazy {
+        BuildConfig.SERPER_API_KEY.also {
+            if (it.isEmpty()) {
+                Log.w("WebSearch", "SERPER_API_KEY is empty! Please set it in local.properties")
+            }
+        }
+    } 
 
     override suspend fun search(query: String): String = suspendCancellableCoroutine { continuation ->
         try {

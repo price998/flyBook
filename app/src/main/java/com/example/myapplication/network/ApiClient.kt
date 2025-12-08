@@ -1,7 +1,9 @@
 package com.example.myapplication.network
 
 import android.util.Log
-import com.example.myapplication.model.*
+import com.example.myapplication.BuildConfig
+import com.example.myapplication.network.model.*
+import com.example.myapplication.config.ModelConfig
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -17,7 +19,6 @@ import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.BufferedReader
 import java.io.IOException
-import java.util.concurrent.TimeUnit
 
 /**
  * API 客户端 - 单例模式，复用 OkHttpClient
@@ -26,19 +27,17 @@ object ApiClient : ApiService {
     private const val TAG = "ApiClient"
     private const val API_URL = "https://api.siliconflow.cn/v1/chat/completions"
     
-    // 从配置文件或环境变量读取
+    // 从 BuildConfig 读取 API Key（安全存储）
     private val apiKey: String by lazy {
-        // TODO: 从 BuildConfig 或安全存储中读取
-        "sk-dvpgsxrmunuxjrhynxsusvkkoajnmbfiymodtdkczegmbuot"
+        BuildConfig.AI_API_KEY.also {
+            if (it.isEmpty()) {
+                Log.w(TAG, "AI_API_KEY is empty! Please set it in local.properties")
+            }
+        }
     }
     
-    // 单例 OkHttpClient - 复用连接池
-    private val client: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build()
-    }
+    // 复用共享的 OkHttpClient
+    private val client: OkHttpClient by lazy { HttpClientProvider.client }
     
     private val gson = Gson()
     

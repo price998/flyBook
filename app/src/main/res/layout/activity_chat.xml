@@ -5,7 +5,7 @@
     android:id="@+id/chat_drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.ChatActivity">
+    tools:context=".ui.chat.ChatActivity">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -52,7 +52,7 @@
             android:id="@+id/swipe_refresh_layout"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            app:layout_constraintBottom_toTopOf="@id/include_bottom_bar"
+            app:layout_constraintBottom_toTopOf="@id/input_bar_fragment"
             app:layout_constraintTop_toBottomOf="@id/layout_header">
 
             <androidx.recyclerview.widget.RecyclerView
@@ -63,10 +63,10 @@
         </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
 
-        <!-- Web Search & Model Switch -->
-        <include
-            android:id="@+id/include_bottom_bar"
-            layout="@layout/layout_chat_bottom_bar"
+        <!-- Input Bar Fragment -->
+        <androidx.fragment.app.FragmentContainerView
+            android:id="@+id/input_bar_fragment"
+            android:name="com.example.myapplication.ui.common.fragments.InputBarFragment"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -97,7 +97,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:name="com.example.myapplication.ui.HistoryFragment" />
+            android:name="com.example.myapplication.ui.history.HistoryFragment" />
 
     </LinearLayout>
 

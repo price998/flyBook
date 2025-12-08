@@ -9,6 +9,30 @@
     android:paddingTop="16dp"
     android:paddingBottom="16dp">
 
+    <!-- 正在生成中的加载提示 -->
+    <LinearLayout
+        android:id="@+id/typing_indicator_layout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="正在生成中"
+            android:textSize="14sp"
+            android:textColor="@color/text_secondary" />
+
+        <com.example.myapplication.ui.common.views.TypingIndicatorView
+            android:id="@+id/typing_indicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp" />
+
+    </LinearLayout>
 
     <!-- 消息正文 -->
     <TextView
@@ -121,6 +145,17 @@
             android:layout_width="22dp"
             android:layout_height="22dp"
             android:src="@drawable/ic_refresh" />
+
+        <Space
+            android:layout_width="24dp"
+            android:layout_height="wrap_content" />
+
+        <!-- 语音播放 -->
+        <ImageView
+            android:id="@+id/btn_speak"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/baseline_volume_up_24" />
 
     </LinearLayout>
 </LinearLayout>

@@ -3,6 +3,7 @@ package com.example.myapplication.utils
 import android.content.Context
 import android.os.Bundle
 import android.util.Log
+import com.example.myapplication.BuildConfig
 import com.iflytek.cloud.ErrorCode
 import com.iflytek.cloud.InitListener
 import com.iflytek.cloud.RecognizerListener
@@ -21,9 +22,14 @@ class XunfeiSpeechRecognizer(private val context: Context) {
     
     companion object {
         private const val TAG = "XunfeiSpeechRecognizer"
-        // 科大讯飞语音识别配置
-        private const val APPID = "b4d78b8e"
-
+        // 从 BuildConfig 读取科大讯飞 APPID（安全存储）
+        private val APPID: String by lazy {
+            BuildConfig.XUNFEI_APPID.also {
+                if (it.isEmpty()) {
+                    Log.w(TAG, "XUNFEI_APPID is empty! Please set it in local.properties")
+                }
+            }
+        }
     }
     
     private var speechRecognizer: SpeechRecognizer? = null
