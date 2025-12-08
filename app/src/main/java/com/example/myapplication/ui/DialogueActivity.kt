@@ -27,8 +27,8 @@ import android.view.MotionEvent
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import com.example.myapplication.ui.widget.ChatInputView
 import kotlinx.coroutines.launch
-
 
 class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
 
@@ -45,6 +45,11 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
 
     private var autoScrollJob: Job? = null
     private var isUserInteracting = false
+
+    override fun getChatInputView(): ChatInputView {
+        return binding.chatInputView
+    }
+
     // HistoryFragment.Listener
     override fun onHistorySelected(conversationId: String) {
         binding.drawerLayout.closeDrawer(GravityCompat.END)
@@ -66,7 +71,7 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
         historyViewModel = ViewModelProvider(this)[HistoryViewModel::class.java]
 
         // 初始化预览适配器（继承自基类）
-        rvPreview = binding.includeBottomBar.rvPreview
+        rvPreview = binding.chatInputView.getPreviewRecyclerView()
         setupPreviewAdapter()
 
         setupWindowInsets()
@@ -105,7 +110,7 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
         }
 
         // 确保输入布局在键盘显示时保持可见
-        ViewCompat.setOnApplyWindowInsetsListener(binding.includeBottomBar.root) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(binding.chatInputView) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             val bottomPadding = maxOf(imeInsets.bottom, systemBars.bottom)
@@ -137,7 +142,7 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
         binding.includeSidebar.btnNewChat.setOnClickListener {
             binding.drawerLayout.closeDrawer(GravityCompat.END)
             // 清空输入框和附件
-            binding.includeBottomBar.etInput.text.clear()
+            binding.chatInputView.clearInput()
             clearSelectedMedia()
             // 重置侧边栏选中状态
             updateSidebarSelection(isNewChat = true)
@@ -169,33 +174,31 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
         }
 
         // 点击更多模型按钮
-        binding.includeBottomBar.ivMoreIcon.setOnClickListener { showModelSelectorDialog() }
+        binding.chatInputView.onModelSwitchClickListener = { showModelSelectorDialog() }
 
         // 联网搜索已通过 setupWebSearchListener() 设置
 
         // 点击上传图片按钮
-        binding.includeBottomBar.ivMore.setOnClickListener { showAttachmentOptions() }
+        binding.chatInputView.onMoreClickListener = { showAttachmentOptions() }
 
         // 点击麦克风/键盘按钮：切换到语音模式或键盘模式
-        binding.includeBottomBar.ivMic.setOnClickListener { viewModel.toggleVoiceMode() }
+        binding.chatInputView.onVoiceModeChangeListener = { isVoice -> viewModel.setVoiceMode(isVoice) }
 
         // 点击发送按钮：发送消息
-        binding.includeBottomBar.ivSend.setOnClickListener {
-            val content = binding.includeBottomBar.etInput.text.toString().trim()
-
+        binding.chatInputView.onSendClickListener = onSendClickListener@{ content ->
             // 如果没有输入文本也没有选中附件，提示用户
             if (content.isEmpty() && selectedItems.isEmpty()) {
                 Toast.makeText(this, "请输入消息或选择附件", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+                return@onSendClickListener
             }
 
             // 创建新对话
             val displayTitle =
-                    if (content.isNotEmpty()) {
-                        if (content.length > 20) content.substring(0, 20) + "..." else content
-                    } else {
-                        "图片对话"
-                    }
+                if (content.isNotEmpty()) {
+                    if (content.length > 20) content.substring(0, 20) + "..." else content
+                } else {
+                    "图片对话"
+                }
 
             historyViewModel.createNewConversation(displayTitle) { conversationId ->
                 // 传递初始消息、对话ID和是否联网搜索
@@ -204,12 +207,12 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
                     intent.putExtra(ChatActivity.EXTRA_INITIAL_QUESTION, content)
                 }
                 intent.putExtra(ChatActivity.EXTRA_CONVERSATION_ID, conversationId)
-                intent.putExtra("is_web_search_enabled", binding.includeBottomBar.layoutWebSearch.isSelected)
+                intent.putExtra("is_web_search_enabled", getWebSearchLayout()!!.isSelected)
 
                 // 如果开启了联网搜索，给用户提示
-                if (binding.includeBottomBar.layoutWebSearch.isSelected && content.isNotEmpty()) {
+                if (getWebSearchLayout()!!.isSelected && content.isNotEmpty()) {
                     Toast.makeText(this@DialogueActivity, "🔍 将使用联网搜索回答您的问题", Toast.LENGTH_SHORT)
-                            .show()
+                        .show()
                 }
                 // 传递当前的语音模式状态
                 intent.putExtra("is_voice_mode", viewModel.isVoiceMode.value ?: false)
@@ -217,13 +220,13 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
                 // 传递选中的附件（如果有的话）
                 if (selectedItems.isNotEmpty()) {
                     val imageUris =
-                            selectedItems.filter { it.type == MediaType.IMAGE }.map {
-                                it.uri.toString()
-                            }
+                        selectedItems.filter { it.type == MediaType.IMAGE }.map {
+                            it.uri.toString()
+                        }
                     val fileUris =
-                            selectedItems.filter { it.type == MediaType.FILE }.map {
-                                it.uri.toString()
-                            }
+                        selectedItems.filter { it.type == MediaType.FILE }.map {
+                            it.uri.toString()
+                        }
                     intent.putStringArrayListExtra("image_uris", ArrayList(imageUris))
                     intent.putStringArrayListExtra("file_uris", ArrayList(fileUris))
                 }
@@ -232,7 +235,7 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
 
                 // 清空输入框和附件
                 runOnUiThread {
-                    binding.includeBottomBar.etInput.text.clear()
+                    binding.chatInputView.clearInput()
                     val itemCount = selectedItems.size
                     selectedItems.clear()
                     if (itemCount > 0) {
@@ -259,7 +262,7 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
         topicAdapter = TopicAdapter { topic ->
             val content = topic.prompt
             if (content.isNotEmpty()) {
-                val isWebSearchEnabled = binding.includeBottomBar.layoutWebSearch.isSelected
+                val isWebSearchEnabled = getWebSearchLayout()?.isSelected ?: false
                 val isVoiceMode = viewModel.isVoiceMode.value ?: false
                 
                 historyViewModel.createNewConversation(content) { conversationId ->
@@ -272,7 +275,7 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
                             intent.putExtra("is_voice_mode", isVoiceMode)
                             startActivity(intent)
                             
-                            binding.includeBottomBar.etInput.text.clear()
+                            binding.chatInputView.clearInput()
                         } catch (e: Exception) {
                             e.printStackTrace()
                             Toast.makeText(
@@ -347,33 +350,7 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
 
         // 观察是否为语音模式
         viewModel.isVoiceMode.observe(this) { isVoiceMode ->
-            if (isVoiceMode == true) {
-                // 如果是，隐藏输入框、发送按钮、分隔符，并显示按住说话
-                binding.includeBottomBar.ivMic.setImageResource(R.drawable.ic_keyboard)
-                binding.includeBottomBar.etInput.visibility = View.GONE
-                binding.includeBottomBar.ivSend.visibility = View.GONE
-                binding.includeBottomBar.dividerSend.visibility = View.GONE
-                binding.includeBottomBar.tvHoldToSpeak.visibility = View.VISIBLE
-            } else {
-                // 如果否，显示输入框、发送按钮、分隔符，并隐藏按住说话
-                binding.includeBottomBar.ivMic.setImageResource(R.drawable.ic_mic)
-                binding.includeBottomBar.etInput.visibility = View.VISIBLE
-                binding.includeBottomBar.ivSend.visibility = View.VISIBLE
-                binding.includeBottomBar.dividerSend.visibility = View.VISIBLE
-                binding.includeBottomBar.tvHoldToSpeak.visibility = View.GONE
-
-                // 仅当处于活动状态时才显示键盘
-                if (hasWindowFocus()) {
-                    binding.includeBottomBar.etInput.requestFocus()
-                    val imm =
-                            getSystemService(INPUT_METHOD_SERVICE) as
-                                    android.view.inputmethod.InputMethodManager
-                    imm.showSoftInput(
-                            binding.includeBottomBar.etInput,
-                            android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT
-                    )
-                }
-            }
+            binding.chatInputView.setVoiceMode(isVoiceMode == true)
         }
 
         // 观察toast消息
@@ -387,7 +364,7 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
         // 观察是否应该清除输入，如果是，清除输入
         viewModel.shouldClearInput.observe(this) { shouldClear ->
             if (shouldClear == true) {
-                binding.includeBottomBar.etInput.text.clear()
+                binding.chatInputView.clearInput()
                 viewModel.onInputCleared()
             }
         }
@@ -417,16 +394,11 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
 
     // ========== 基类抽象方法实现 ==========
     
-    override fun getHoldToSpeakView(): View = binding.includeBottomBar.tvHoldToSpeak
-    
-    override fun getMoreButton(): View = binding.includeBottomBar.ivMore
-    
     override fun onVoiceRecognitionResult(text: String) {
         // 自动切换到键盘模式，这样可以在输入框看到识别内容
         viewModel.setVoiceMode(false)
         // 将识别结果填入输入框
-        binding.includeBottomBar.etInput.setText(text)
-        binding.includeBottomBar.etInput.setSelection(text.length)
+        binding.chatInputView.setInputText(text)
     }
     
     override fun onRecordAudioPermissionNeeded() {
@@ -440,8 +412,6 @@ class DialogueActivity : BaseAttachmentActivity(), HistoryFragment.Listener {
     override fun onModelSwitch(modelConfig: ModelConfig) {
         ModelPreferences.saveSelectedModel(this, modelConfig.id)
     }
-
-    override fun getWebSearchLayout(): View = binding.includeBottomBar.layoutWebSearch
 
     override fun onWebSearchToggle(isEnabled: Boolean) {
         // DialogueActivity 不需要同步到 ViewModel，只需要保持状态用于传递给 ChatActivity

@@ -31,9 +31,8 @@
             app:tint="@color/black" />
 
         <!-- Web Search & Model Switch -->
-        <include
-            android:id="@+id/include_bottom_bar"
-            layout="@layout/layout_chat_bottom_bar"
+        <com.example.myapplication.ui.widget.ChatInputView
+            android:id="@+id/chat_input_view"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:layout_constraintBottom_toBottomOf="parent"
@@ -94,7 +93,7 @@
             android:clipToPadding="false"
             android:paddingHorizontal="16dp"
             android:paddingBottom="16dp"
-            app:layout_constraintBottom_toTopOf="@+id/layout_web_search"
+            app:layout_constraintBottom_toTopOf="@+id/chat_input_view"
             app:layout_constraintTop_toBottomOf="@+id/tv_main_subtitle" />
 
 

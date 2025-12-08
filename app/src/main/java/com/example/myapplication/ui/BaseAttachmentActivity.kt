@@ -26,6 +26,7 @@ import com.example.myapplication.model.ModelRegistry
 import com.example.myapplication.model.SelectedMedia
 import com.example.myapplication.utils.ModelPreferences
 import com.example.myapplication.utils.XunfeiSpeechRecognizer
+import com.example.myapplication.ui.widget.ChatInputView
 import com.google.android.material.bottomsheet.BottomSheetDialog
 
 /**
@@ -48,15 +49,34 @@ abstract class BaseAttachmentActivity : AppCompatActivity() {
     private var isNetworkSearchEnabled = false
 
     // ========== 抽象方法 - 子类需实现 ==========
+    
+    /**
+     * 获取 ChatInputView，如果子类使用了 ChatInputView，请返回实例
+     * 如果返回非空，getHoldToSpeakView, getMoreButton, getWebSearchLayout 可不再手动实现（将自动代理）
+     */
+    protected open fun getChatInputView(): ChatInputView? = null
+
     /**
      * 获取"按住说话"的视图，用于设置触摸监听
      */
-    protected abstract fun getHoldToSpeakView(): View?
+    protected open fun getHoldToSpeakView(): View? {
+        return getChatInputView()?.binding?.tvHoldToSpeak
+    }
 
     /**
      * 获取附件选择按钮（更多按钮），用于显示 PopupWindow
      */
-    protected abstract fun getMoreButton(): View
+    protected open fun getMoreButton(): View {
+        return getChatInputView()?.binding?.ivMore ?: throw IllegalStateException("Must implement getMoreButton or getChatInputView")
+    }
+    
+    /**
+     * 获取联网搜索布局视图，用于设置状态和点击监听
+     */
+    protected open fun getWebSearchLayout(): View? {
+        return getChatInputView()?.binding?.layoutWebSearch
+    }
+
 
     /**
      * 语音识别成功后的回调
@@ -360,11 +380,6 @@ abstract class BaseAttachmentActivity : AppCompatActivity() {
     protected abstract fun onModelSwitch(modelConfig: ModelConfig)
 
     /**
-     * 获取联网搜索布局视图，用于设置状态和点击监听
-     */
-    protected abstract fun getWebSearchLayout(): View?
-
-    /**
      * 联网搜索状态切换时的回调，子类需实现具体的同步逻辑
      */
     protected abstract fun onWebSearchToggle(isEnabled: Boolean)
@@ -396,14 +411,30 @@ abstract class BaseAttachmentActivity : AppCompatActivity() {
      * 设置联网搜索的点击监听器（公共方法）
      */
     protected fun setupWebSearchListener() {
-        val webSearchLayout = getWebSearchLayout() ?: return
-        
-        // 从 SharedPreferences 读取上次的状态
-        isNetworkSearchEnabled = ModelPreferences.getWebSearchEnabled(this)
-        webSearchLayout.isSelected = isNetworkSearchEnabled
-        
-        webSearchLayout.setOnClickListener {
-            toggleNetworkSearch()
+        val chatInputView = getChatInputView()
+        if (chatInputView != null) {
+            // 使用 ChatInputView 的逻辑
+            isNetworkSearchEnabled = ModelPreferences.getWebSearchEnabled(this)
+            chatInputView.setWebSearchEnabled(isNetworkSearchEnabled)
+            
+            chatInputView.onWebSearchToggleListener = { enabled ->
+                isNetworkSearchEnabled = enabled
+                ModelPreferences.saveWebSearchEnabled(this, enabled)
+                onWebSearchToggle(enabled)
+                val message = if (enabled) "联网搜索已开启" else "联网搜索已关闭"
+                Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            // 原有逻辑：直接操作 View
+            val webSearchLayout = getWebSearchLayout() ?: return
+            
+            // 从 SharedPreferences 读取上次的状态
+            isNetworkSearchEnabled = ModelPreferences.getWebSearchEnabled(this)
+            webSearchLayout.isSelected = isNetworkSearchEnabled
+            
+            webSearchLayout.setOnClickListener {
+                toggleNetworkSearch()
+            }
         }
     }
 

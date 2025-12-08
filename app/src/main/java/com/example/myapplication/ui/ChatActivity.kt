@@ -43,6 +43,7 @@ import android.content.Context
 import androidx.lifecycle.lifecycleScope
 import com.example.myapplication.model.ChatMessage
 import com.google.android.datatransport.BuildConfig
+import com.example.myapplication.ui.widget.ChatInputView
 import kotlinx.coroutines.launch
 
 class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listener, HistoryFragment.Listener{
@@ -79,6 +80,10 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
                 .build()
     }
 
+    override fun getChatInputView(): ChatInputView {
+        return binding.chatInputView
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -90,10 +95,8 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
         historyViewModel = ViewModelProvider(this)[HistoryViewModel::class.java]
         dialogueViewModel = ViewModelProvider(this)[DialogueViewModel::class.java]
 
-        updateSendButtonVisibility()
-
         // 初始化 RecyclerView 用于预览（继承自基类）
-        rvPreview = binding.includeBottomBar.rvPreview
+        rvPreview = binding.chatInputView.getPreviewRecyclerView()
         setupPreviewAdapter()
         setupWindowInsets()
         setupClickListeners()
@@ -153,9 +156,8 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
         // 处理初始语音模式状态
         val isInitialVoiceMode = intent.getBooleanExtra("is_voice_mode", false)
         isKeyboardMode = !isInitialVoiceMode // 默认为键盘模式
-
-        // 根据初始状态设置 UI
-        updateInputModeUI()
+        
+        binding.chatInputView.setVoiceMode(!isKeyboardMode)
 
         // 假数据开关（防止每次都重复造）
         if (BuildConfig.DEBUG) {
@@ -234,24 +236,24 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
         }
 
 
-        binding.includeBottomBar.ivMore.setOnClickListener { showAttachmentOptions() }
-        binding.includeBottomBar.ivMic.setOnClickListener { toggleInputMode() }
+        binding.chatInputView.onMoreClickListener = { showAttachmentOptions() }
+        binding.chatInputView.onVoiceModeChangeListener = { isVoiceMode ->
+            isKeyboardMode = !isVoiceMode
+        }
 
         // 设置语音输入的触摸监听
         setupVoiceInputListener()
 
-        binding.includeBottomBar.ivMoreIcon.setOnClickListener { showModelSelectorDialog() }
+        binding.chatInputView.onModelSwitchClickListener = { showModelSelectorDialog() }
 
         // 联网搜索已通过 setupWebSearchListener() 设置
 
-        binding.includeBottomBar.ivSend.setOnClickListener { sendMessage() }
+        binding.chatInputView.onSendClickListener = { content -> sendMessage(content) }
 
-        binding.includeBottomBar.ivStop.setOnClickListener {
+        binding.chatInputView.onStopClickListener = {
             viewModel.stopGeneration()
             Toast.makeText(this, "正在停止生成...", Toast.LENGTH_SHORT).show()
         }
-
-        setupInputListener()
     }
 
     /** 设置聊天RecyclerView */
@@ -350,10 +352,8 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
         
         // 观察AI生成状态，控制停止按钮的显示
         viewModel.isGenerating.observe(this) { isGenerating ->
-            binding.includeBottomBar.ivStop.visibility = if (isGenerating) View.VISIBLE else View.GONE
-            binding.includeBottomBar.ivSend.visibility = if (isGenerating) View.GONE else View.VISIBLE
+            binding.chatInputView.setGenerating(isGenerating)
             isGeneratingResponse = isGenerating
-            updateSendButtonVisibility()
         }
 
         // 观察OCR解析进度
@@ -525,7 +525,7 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
         }
 
         // 确保输入布局在键盘显示时保持可见
-        ViewCompat.setOnApplyWindowInsetsListener(binding.includeBottomBar.layoutInput) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(binding.chatInputView) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             val bottomPadding = maxOf(imeInsets.bottom, systemBars.bottom)
@@ -544,33 +544,7 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
         }
     }
 
-    private fun toggleInputMode() {
-        isKeyboardMode = !isKeyboardMode
-        updateInputModeUI()
-    }
 
-    private fun updateInputModeUI() {
-        if (isKeyboardMode) {
-            binding.includeBottomBar.tvHoldToSpeak.visibility = View.GONE
-            binding.includeBottomBar.etInput.visibility = View.VISIBLE
-            binding.includeBottomBar.ivMic.setImageResource(R.drawable.ic_mic)
-        } else {
-            binding.includeBottomBar.tvHoldToSpeak.visibility = View.VISIBLE
-            binding.includeBottomBar.etInput.visibility = View.GONE
-            binding.includeBottomBar.ivMic.setImageResource(R.drawable.ic_keyboard)
-
-            // 隐藏键盘
-            val imm =
-                    getSystemService(Context.INPUT_METHOD_SERVICE) as
-                            android.view.inputmethod.InputMethodManager
-            imm.hideSoftInputFromWindow(binding.includeBottomBar.etInput.windowToken, 0)
-        }
-    }
-
-    private fun updateSendButtonVisibility() {
-        binding.includeBottomBar.ivSend.visibility =
-                if (!isGeneratingResponse && isKeyboardMode) View.VISIBLE else View.GONE
-    }
 
     // 模型选择对话框已在基类实现，直接使用 binding.ivMoreIcon.setOnClickListener { showModelSelectorDialog() }
     // 联网搜索功能已在基类实现，通过 setupWebSearchListener() 设置点击监听
@@ -618,9 +592,9 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
             .show(supportFragmentManager, "message_actions")
     }
 
-    private fun sendMessage() {
+    private fun sendMessage(content: String? = null) {
         try {
-            val message = binding.includeBottomBar.etInput.text.toString().trim()
+            val message = content ?: binding.chatInputView.getInputText()
 
             // 如果没有输入文本也没有选中附件，提示用户
             if (message.isEmpty() && selectedItems.isEmpty()) {
@@ -629,7 +603,7 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
             }
 
             // 清空输入框
-            binding.includeBottomBar.etInput.text.clear()
+            binding.chatInputView.clearInput()
 
             val imageUris = selectedItems.filter { it.type == MediaType.IMAGE }.map { it.uri }
             val fileUris = selectedItems.filter { it.type == MediaType.FILE }.map { it.uri }
@@ -696,31 +670,7 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
         ocrProgressDialog?.show()
     }
 
-    private fun setupInputListener() {
-        binding.includeBottomBar.etInput.addTextChangedListener(
-                object : TextWatcher {
-                    override fun beforeTextChanged(
-                            s: CharSequence?,
-                            start: Int,
-                            count: Int,
-                            after: Int
-                    ) {}
 
-                    override fun onTextChanged(
-                            s: CharSequence?,
-                            start: Int,
-                            before: Int,
-                            count: Int
-                    ) {}
-
-                    override fun afterTextChanged(s: Editable?) {
-                        // 只有在未开启联网搜索时，才根据输入内容改变发送按钮颜色
-                        binding.includeBottomBar.ivSend.background = null
-                        binding.includeBottomBar.ivSend.clearColorFilter()
-                    }
-                }
-        )
-    }
 
     // 语音识别相关方法已移至基类 BaseAttachmentActivity
 
@@ -746,19 +696,14 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
 
     // ========== 基类抽象方法实现 ==========
     
-    override fun getHoldToSpeakView(): View = binding.includeBottomBar.tvHoldToSpeak
-    
-    override fun getMoreButton(): View = binding.includeBottomBar.ivMore
-    
     override fun onVoiceRecognitionResult(text: String) {
         // 自动切换到键盘模式，这样可以在输入框看到识别内容
         if (!isKeyboardMode) {
             isKeyboardMode = true
-            updateInputModeUI()
+            binding.chatInputView.setVoiceMode(false)
         }
         // 将识别结果填入输入框
-        binding.includeBottomBar.etInput.setText(text)
-        binding.includeBottomBar.etInput.setSelection(text.length)
+        binding.chatInputView.setInputText(text)
     }
     
     override fun onRecordAudioPermissionNeeded() {
@@ -772,8 +717,6 @@ class ChatActivity : BaseAttachmentActivity(), MessageActionsBottomSheet.Listene
     override fun onModelSwitch(modelConfig: ModelConfig) {
         viewModel.switchModel(modelConfig)
     }
-
-    override fun getWebSearchLayout(): View = binding.includeBottomBar.layoutWebSearch
 
     override fun onWebSearchToggle(isEnabled: Boolean) {
         // 同步状态到 ViewModel
