@@ -75,8 +75,7 @@
             android:visibility="gone"
             app:layout_constraintBottom_toTopOf="@+id/input_box_container"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:layout_marginBottom="8dp"/>
+            app:layout_constraintEnd_toEndOf="parent" />
 
         <!-- Input Box -->
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -88,8 +87,7 @@
             android:paddingHorizontal="12dp"
             android:paddingVertical="8dp"
             android:layout_marginBottom="12dp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintTop_toTopOf="parent">
+            app:layout_constraintBottom_toBottomOf="parent">
 
             <!-- Left: Mic/Keyboard Button -->
             <ImageView
