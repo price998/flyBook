@@ -1,13 +1,11 @@
 package com.example.myapplication.ui.history
 
-
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
-import com.example.myapplication.model.ChatHistory
-import com.example.myapplication.repository.HistoryRepository
+import com.example.myapplication.domain.ChatHistory
 import kotlinx.coroutines.launch
 
 class TrashViewModel(application: Application) : AndroidViewModel(application) {
@@ -22,7 +20,7 @@ class TrashViewModel(application: Application) : AndroidViewModel(application) {
             _trashList.value = repository.getTrashList()
         }
     }
-    //恢复指定对话
+    // 恢复指定对话
     fun restore(conversationId: String) {
         viewModelScope.launch {
             repository.restoreConversation(conversationId)
@@ -38,8 +36,6 @@ class TrashViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun cleanupExpiredTrash(ttlDays: Int = 7) {
-        viewModelScope.launch {
-            repository.cleanupExpiredTrash(ttlDays)
-        }
+        viewModelScope.launch { repository.cleanupExpiredTrash(ttlDays) }
     }
 }

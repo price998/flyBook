@@ -18,6 +18,10 @@ import com.example.myapplication.domain.ChatMessage
  * 在 MainActivity 和 ChatActivity 之间共享
  */
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val _isLoading = MutableLiveData<Boolean>(false)
+    val isLoading: LiveData<Boolean> = _isLoading
+
     // 1. 依赖注入：初始化数据层仓库（Repository）
     private val repository = HistoryRepository(application)
     private val chatRepository = ChatRepository(
@@ -27,6 +31,9 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     // 2. 数据容器：MutableLiveData（内部可修改）+ LiveData（外部仅可观察），保证数据单向流动
     private val _historyList = MutableLiveData<List<ChatHistory>>()
     val historyList: LiveData<List<ChatHistory>> = _historyList
+
+    private val _searchResultsEmpty = MutableLiveData<Boolean>(false)
+    val searchResultsEmpty: LiveData<Boolean> = _searchResultsEmpty
 
     @Suppress("unused")
     private val _errorMessage = MutableLiveData<String?>()
@@ -127,18 +134,29 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
     @Suppress("unused")
     fun search(query: String) {
         viewModelScope.launch {
+            _isLoading.value = true
+            _errorMessage.value = null
+
             try {
-                if (query.isBlank()) {
-                    loadHistory()
+                val results = if (query.isBlank()) {
+                    // 如果查询为空，返回所有对话
+                    repository.getHistoryList()
                 } else {
-                    val list = repository.searchHistory(query)
-                    _historyList.value = list
+                    // 否则执行搜索
+                    repository.searchHistory(query)
                 }
+
+                _historyList.value = results
+                _searchResultsEmpty.value = results.isEmpty()
             } catch (e: Exception) {
                 _errorMessage.value = "搜索失败: ${e.message}"
+                _searchResultsEmpty.value = true
+            } finally {
+                _isLoading.value = false
             }
         }
     }
+
     /**
      * 生成一条长对话假数据（默认 120 轮 = 240 条消息）
      * 在 IO 线程里通过 ChatRepository 一条条写入，自动维护 messageCount 等字段

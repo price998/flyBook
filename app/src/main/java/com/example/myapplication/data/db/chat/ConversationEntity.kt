@@ -18,5 +18,7 @@ data class ConversationEntity(
     val lastMessagePreview: String? = null, // 【性能优化】列表页直接显示，无需查消息表
     
     // 【用户系统】即使是本地，也保留此字段以支持"注册登录"需求
-    val userId: String = "local_user"
+    val userId: String = "local_user",
+    //用于过期判断
+    val deletedAt: Long? = null
 )

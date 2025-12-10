@@ -31,6 +31,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication"
+        android:name=".MyApp"
         tools:targetApi="31">
         <activity
             android:name=".ui.auth.LoginActivity"
@@ -55,6 +56,11 @@
             android:exported="false"
             android:windowSoftInputMode="stateVisible|adjustResize" />
 
+        <activity
+            android:name=".ui.history.TrashActivity"
+            android:exported="false" />
+
     </application>
+
 
 </manifest>

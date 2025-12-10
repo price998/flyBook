@@ -5,7 +5,7 @@
     android:layout_height="wrap_content"
     android:orientation="vertical">
 
-    <!-- Sidebar Header: Logo and Search -->
+    <!-- Sidebar Header: Trash shortcut and Search -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -14,14 +14,20 @@
         android:paddingHorizontal="24dp"
         android:paddingBottom="10dp">
 
-        <TextView
+        <ImageView
+            android:id="@+id/btn_sidebar_trash"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/ic_trash_header"
+            android:contentDescription="回收站"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true" />
+
+        <View
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="飞书知识问答"
-            android:textColor="@color/black"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
         <ImageView
             android:id="@+id/btn_sidebar_search"
@@ -86,6 +92,7 @@
         android:background="@drawable/bg_sidebar_button"
         android:backgroundTint="#F0F0F0" />
 
+    <!-- 保留分隔线，标识菜单与历史列表区分 -->
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"

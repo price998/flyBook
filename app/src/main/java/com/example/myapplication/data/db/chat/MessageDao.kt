@@ -30,6 +30,9 @@ interface MessageDao {
         conversationId: String,
         timestamps: List<Long>
     )
+
+    @Query("DELETE FROM messages WHERE conversationId = :conversationId")
+    suspend fun deleteMessagesByConversation(conversationId: String)
     @Query(
         """
         UPDATE messages 

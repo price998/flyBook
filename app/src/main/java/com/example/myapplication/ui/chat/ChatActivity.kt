@@ -16,43 +16,44 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.R
 import com.example.myapplication.databinding.ActivityChatBinding
 import com.example.myapplication.domain.ChatMessage
-import com.example.myapplication.ui.common.model.MediaType
-import com.example.myapplication.ui.common.model.SelectedMedia
 import com.example.myapplication.ui.base.BaseHistoryActivity
+import com.example.myapplication.ui.chat.ChatViewModel.OCRProgress
 import com.example.myapplication.ui.chat.adapters.ChatMessageAdapter
 import com.example.myapplication.ui.common.dialogs.MessageActionsBottomSheet
 import com.example.myapplication.ui.common.dialogs.SelectTextDialogFragment
-import com.example.myapplication.ui.history.HistoryFragment
 import com.example.myapplication.ui.common.fragments.InputBarFragment
 import com.example.myapplication.ui.common.managers.AttachmentSelectionManager
 import com.example.myapplication.ui.common.managers.ModelManager
 import com.example.myapplication.ui.common.managers.SidebarManager
-import com.example.myapplication.ui.common.managers.VoiceRecognitionManager
 import com.example.myapplication.ui.common.managers.TTSManager
+import com.example.myapplication.ui.common.managers.VoiceRecognitionManager
+import com.example.myapplication.ui.common.model.MediaType
+import com.example.myapplication.ui.common.model.SelectedMedia
 import com.example.myapplication.ui.common.navigation.AppNavigator
-import com.example.myapplication.ui.chat.ChatViewModel.OCRProgress
+import com.example.myapplication.ui.history.HistoryFragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.noties.markwon.Markwon
 import kotlin.math.abs
 
 /**
  * 聊天对话Activity
- * 
+ *
  * 职责：
  * - 展示聊天消息列表
  * - 处理消息发送（文本、图片、文件）
  * - 管理消息的点赞、分享、重新生成等操作
  * - 处理 OCR 图片识别
  * - 管理消息列表的自动滚动
- * 
+ *
  * 使用组合模式管理功能：
  * - AttachmentManager: 附件管理
  * - VoiceRecognitionManager: 语音识别
  * - SidebarManager: 侧边栏管理
  */
-class ChatActivity : BaseHistoryActivity(), 
-    MessageActionsBottomSheet.Listener, 
-    InputBarFragment.InputBarListener {
+class ChatActivity :
+        BaseHistoryActivity(),
+        MessageActionsBottomSheet.Listener,
+        InputBarFragment.InputBarListener {
 
     companion object {
         /** Intent 参数：对话 ID */
@@ -76,28 +77,28 @@ class ChatActivity : BaseHistoryActivity(),
     private var shouldAutoScroll = true
     /** 用户是否正在拖动列表 */
     private var isUserDragging = false
-    
+
     // UI Components
     private lateinit var binding: ActivityChatBinding
     private lateinit var chatMessageAdapter: ChatMessageAdapter
     private lateinit var inputBarFragment: InputBarFragment
-    
+
     // ViewModels
     private lateinit var viewModel: ChatViewModel
     private lateinit var historyViewModel: com.example.myapplication.ui.history.HistoryViewModel
-    
+
     // Managers (组合模式)
     private lateinit var attachmentManager: AttachmentSelectionManager
     private lateinit var voiceRecognitionManager: VoiceRecognitionManager
     private lateinit var sidebarManager: SidebarManager
     private lateinit var ttsManager: TTSManager
-    
+
     // Markwon 实例 - Activity 级别单例，注入到 Adapter
     // 使用优化的 MarkwonFactory 创建，支持代码高亮且性能优化
     private val markwon: Markwon by lazy {
         com.example.myapplication.utils.MarkwonFactory.create(
-            context = this,
-            enableCodeHighlight = true  // 启用代码高亮（已优化性能）
+                context = this,
+                enableCodeHighlight = true // 启用代码高亮（已优化性能）
         )
     }
 
@@ -109,11 +110,14 @@ class ChatActivity : BaseHistoryActivity(),
 
         // Initialize ViewModels
         viewModel = ViewModelProvider(this)[ChatViewModel::class.java]
-        historyViewModel = ViewModelProvider(this)[com.example.myapplication.ui.history.HistoryViewModel::class.java]
+        historyViewModel =
+                ViewModelProvider(this)[
+                        com.example.myapplication.ui.history.HistoryViewModel::class.java]
 
         // 初始化 InputBarFragment（必须在 setupWindowInsets 之前）
         supportFragmentManager.executePendingTransactions()
-        inputBarFragment = supportFragmentManager.findFragmentById(R.id.input_bar_fragment) as InputBarFragment
+        inputBarFragment =
+                supportFragmentManager.findFragmentById(R.id.input_bar_fragment) as InputBarFragment
         inputBarFragment.setListener(this)
 
         // 初始化 AttachmentSelectionManager
@@ -125,17 +129,13 @@ class ChatActivity : BaseHistoryActivity(),
         // 初始化 VoiceRecognitionManager
         voiceRecognitionManager = VoiceRecognitionManager(this)
         voiceRecognitionManager.init()
-        voiceRecognitionManager.setOnResultListener { text ->
-            onVoiceRecognitionResult(text)
-        }
-        voiceRecognitionManager.setOnPermissionNeededListener {
-            onRecordAudioPermissionNeeded()
-        }
+        voiceRecognitionManager.setOnResultListener { text -> onVoiceRecognitionResult(text) }
+        voiceRecognitionManager.setOnPermissionNeededListener { onRecordAudioPermissionNeeded() }
 
         // 初始化 TTSManager（语音播放）
         ttsManager = TTSManager(this)
         ttsManager.init()
-        
+
         setupWindowInsetsForChat()
         setupSidebar()
         setupClickListeners()
@@ -147,13 +147,15 @@ class ChatActivity : BaseHistoryActivity(),
         val conversationId = intent.getStringExtra(EXTRA_CONVERSATION_ID) ?: ""
         if (conversationId.isNotEmpty()) {
             viewModel.setConversationId(conversationId)
-            (supportFragmentManager.findFragmentById(R.id.history_fragment_container) as? HistoryFragment)
-                ?.updateCurrentConversation(conversationId)
+            (supportFragmentManager.findFragmentById(R.id.history_fragment_container) as?
+                            HistoryFragment)
+                    ?.updateCurrentConversation(conversationId)
         }
-        
+
         // 处理联网搜索开关状态（必须在发送消息之前设置）
         // 从会话状态管理器读取状态，而不是从 Intent
-        val isWebSearchEnabled = com.example.myapplication.utils.AppPreferences.getWebSearchEnabled()
+        val isWebSearchEnabled =
+                com.example.myapplication.utils.AppPreferences.getWebSearchEnabled()
         inputBarFragment.setWebSearchEnabled(isWebSearchEnabled)
         // 同步状态到 ViewModel
         viewModel.toggleSearch(isWebSearchEnabled)
@@ -189,40 +191,50 @@ class ChatActivity : BaseHistoryActivity(),
         }
     }
 
-
-
     /** 设置 WindowInsets 适配 */
     private fun setupWindowInsetsForChat() {
-        com.example.myapplication.utils.WindowInsetsHelper.setupDrawerLayoutInsets(binding.chatDrawerLayout)
-        com.example.myapplication.utils.WindowInsetsHelper.setupInputLayoutInsets(binding.inputBarFragment)
-        com.example.myapplication.utils.WindowInsetsHelper.setupSidebarInsets(binding.includeSidebar.root)
+        com.example.myapplication.utils.WindowInsetsHelper.setupDrawerLayoutInsets(
+                binding.chatDrawerLayout
+        )
+        com.example.myapplication.utils.WindowInsetsHelper.setupInputLayoutInsets(
+                binding.inputBarFragment
+        )
+        com.example.myapplication.utils.WindowInsetsHelper.setupSidebarInsets(
+                binding.includeSidebar.root
+        )
     }
 
     /** 设置侧边栏管理器 */
     private fun setupSidebar() {
-        sidebarManager = SidebarManager(
-            drawerLayout = binding.chatDrawerLayout,
-            sidebarBinding = binding.includeSidebar,
-            listener = object : SidebarManager.Listener {
-                override fun onItemClick(item: SidebarManager.SidebarItem) {
-                    onSidebarItemClick(item)
-                }
-            }
-        )
+        sidebarManager =
+                SidebarManager(
+                        drawerLayout = binding.chatDrawerLayout,
+                        sidebarBinding = binding.includeSidebar,
+                        listener =
+                                object : SidebarManager.Listener {
+                                    override fun onItemClick(item: SidebarManager.SidebarItem) {
+                                        onSidebarItemClick(item)
+                                    }
+                                }
+                )
         sidebarManager.setup()
     }
 
     /** 设置历史对话列表 Fragment */
     private fun setupHistoryFragment(currentConversationId: String?) {
         val fragment = HistoryFragment.newInstance(currentConversationId)
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.history_fragment_container, fragment)
-            .commit()
+        supportFragmentManager
+                .beginTransaction()
+                .replace(R.id.history_fragment_container, fragment)
+                .commit()
     }
 
     /** 处理侧边栏按钮点击事件 */
     private fun onSidebarItemClick(item: SidebarManager.SidebarItem) {
         when (item) {
+            SidebarManager.SidebarItem.TRASH -> {
+                AppNavigator.navigateToTrash(this)
+            }
             SidebarManager.SidebarItem.SEARCH -> {
                 AppNavigator.navigateToSearch(this)
             }
@@ -236,17 +248,18 @@ class ChatActivity : BaseHistoryActivity(),
             }
             SidebarManager.SidebarItem.GENERATE_FAKE_DATA -> {
                 Toast.makeText(this@ChatActivity, "正在生成假数据对话…", Toast.LENGTH_SHORT).show()
-                
+
                 historyViewModel.generateFakeConversation { conversationId ->
                     // 切换当前 ViewModel 到这条长对话
                     viewModel.setConversationId(conversationId)
-                    (supportFragmentManager.findFragmentById(R.id.history_fragment_container) as? HistoryFragment)
-                        ?.updateCurrentConversation(conversationId)
+                    (supportFragmentManager.findFragmentById(R.id.history_fragment_container) as?
+                                    HistoryFragment)
+                            ?.updateCurrentConversation(conversationId)
                     // 更新历史列表选中状态
                     sidebarManager.updateSelection(null)
-                    
+
                     Toast.makeText(this@ChatActivity, "假数据对话已生成", Toast.LENGTH_SHORT).show()
-                    
+
                     // 滚动到底部，看到最新一轮
                     val size = viewModel.messages.value?.size ?: 0
                     if (size > 0) {
@@ -277,42 +290,39 @@ class ChatActivity : BaseHistoryActivity(),
     /** 设置聊天RecyclerView */
     private fun setupChatRecyclerView() {
         binding.chatMessagesRecyclerview.apply {
-            val linearLayoutManager = LinearLayoutManager(this@ChatActivity).apply {
-                // 列表从底部开始堆叠，最后一条自然贴着底部 / 键盘
-                stackFromEnd = false
-            }
+            val linearLayoutManager =
+                    LinearLayoutManager(this@ChatActivity).apply {
+                        // 列表从底部开始堆叠，最后一条自然贴着底部 / 键盘
+                        stackFromEnd = false
+                    }
             layoutManager = linearLayoutManager
 
             val initialList = viewModel.messages.value ?: mutableListOf()
 
-            adapter = ChatMessageAdapter(
-                messages = initialList,
-                markwon = markwon,
-                onAiMessageLongClick = { message, anchorView, rawX, rawY ->
-                    // 长按 AI 消息，弹出对话框
-                    showMessageActionsDialog(message, anchorView, rawX, rawY)
-                },
-                onShareClick = { message ->
-                    shareText(message.content)
-                },
-                onLikeClick = { message ->
-                    updateLikeState(message, isLike = true)
-                },
-                onDislikeClick = { message ->
-                    updateLikeState(message, isLike = false)
-                },
-                onReloadClick = { message ->
-                    reloadAnswer(message)
-                },
-                onSpeakClick = { message ->
-                    speakMessage(message)
-                }
-            ).also { chatMessageAdapter = it }
+            adapter =
+                    ChatMessageAdapter(
+                                    messages = initialList,
+                                    markwon = markwon,
+                                    onAiMessageLongClick = { message, anchorView, rawX, rawY ->
+                                        // 长按 AI 消息，弹出对话框
+                                        showMessageActionsDialog(message, anchorView, rawX, rawY)
+                                    },
+                                    onShareClick = { message -> shareText(message.content) },
+                                    onLikeClick = { message ->
+                                        updateLikeState(message, isLike = true)
+                                    },
+                                    onDislikeClick = { message ->
+                                        updateLikeState(message, isLike = false)
+                                    },
+                                    onReloadClick = { message -> reloadAnswer(message) },
+                                    onSpeakClick = { message -> speakMessage(message) }
+                            )
+                            .also { chatMessageAdapter = it }
 
             setHasFixedSize(true)
             setItemViewCacheSize(20)
             (itemAnimator as? androidx.recyclerview.widget.SimpleItemAnimator)
-                ?.supportsChangeAnimations = false
+                    ?.supportsChangeAnimations = false
 
             // 键盘弹出时，如果本来在底部，就把最后一条挪到键盘上方
             addOnLayoutChangeListener { _, _, _, _, bottom, _, _, _, oldBottom ->
@@ -322,52 +332,56 @@ class ChatActivity : BaseHistoryActivity(),
             }
 
             // 监听用户拖动 & 顶部加载历史
-            addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            addOnScrollListener(
+                    object : RecyclerView.OnScrollListener() {
 
-                override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
-                    super.onScrollStateChanged(recyclerView, newState)
+                        override fun onScrollStateChanged(
+                                recyclerView: RecyclerView,
+                                newState: Int
+                        ) {
+                            super.onScrollStateChanged(recyclerView, newState)
 
-                    when (newState) {
-                        RecyclerView.SCROLL_STATE_DRAGGING -> {
-                            // 用户开始拖动，关闭自动跟随
-                            isUserDragging = true
-                            shouldAutoScroll = false
+                            when (newState) {
+                                RecyclerView.SCROLL_STATE_DRAGGING -> {
+                                    // 用户开始拖动，关闭自动跟随
+                                    isUserDragging = true
+                                    shouldAutoScroll = false
+                                }
+                                RecyclerView.SCROLL_STATE_IDLE -> {
+                                    // 停止拖动，判断是否回到底部，是的话重新开启自动滚动
+                                    isUserDragging = false
+                                    val lm =
+                                            recyclerView.layoutManager as? LinearLayoutManager
+                                                    ?: return
+                                    val lastVisible = lm.findLastVisibleItemPosition()
+                                    val itemCount = chatMessageAdapter.itemCount
+                                    shouldAutoScroll = itemCount > 0 && lastVisible >= itemCount - 1
+                                }
+                            }
                         }
-                        RecyclerView.SCROLL_STATE_IDLE -> {
-                            // 停止拖动，判断是否回到底部，是的话重新开启自动滚动
-                            isUserDragging = false
+
+                        override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                            super.onScrolled(recyclerView, dx, dy)
                             val lm = recyclerView.layoutManager as? LinearLayoutManager ?: return
-                            val lastVisible = lm.findLastVisibleItemPosition()
-                            val itemCount = chatMessageAdapter.itemCount
-                            shouldAutoScroll = itemCount > 0 && lastVisible >= itemCount - 1
+
+                            // 上拉到列表顶部时自动加载历史消息
+                            if (dy < 0 &&
+                                            lm.findFirstVisibleItemPosition() == 0 &&
+                                            !binding.swipeRefreshLayout.isRefreshing
+                            ) {
+                                binding.swipeRefreshLayout.isRefreshing = true
+                                viewModel.loadMoreHistory()
+                            }
                         }
                     }
-                }
-
-                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
-                    super.onScrolled(recyclerView, dx, dy)
-                    val lm = recyclerView.layoutManager as? LinearLayoutManager ?: return
-
-                    // 上拉到列表顶部时自动加载历史消息
-                    if (dy < 0 &&
-                        lm.findFirstVisibleItemPosition() == 0 &&
-                        !binding.swipeRefreshLayout.isRefreshing
-                    ) {
-                        binding.swipeRefreshLayout.isRefreshing = true
-                        viewModel.loadMoreHistory()
-                    }
-                }
-            })
+            )
         }
-
-
-
 
         // 设置下拉刷新监听器
         binding.swipeRefreshLayout.setOnRefreshListener { viewModel.loadMoreHistory() }
 
         // 历史列表由 HistoryFragment 托管，在 setupHistoryFragment() 中初始化
-        
+
         // 观察AI生成状态，控制停止按钮的显示
         viewModel.isGenerating.observe(this) { isGenerating ->
             inputBarFragment.setGenerating(isGenerating)
@@ -380,7 +394,7 @@ class ChatActivity : BaseHistoryActivity(),
         // 观察消息列表变化（用于切换对话时的刷新）
         viewModel.messages.observe(this) { messages ->
             val currentCount = messages.size
-            
+
             when {
                 // 列表被清空（切换对话时）
                 currentCount == 0 && previousMessageCount > 0 -> {
@@ -397,7 +411,8 @@ class ChatActivity : BaseHistoryActivity(),
                     }
                 }
                 // 列表大小显著变化（可能是切换对话后加载了历史消息）
-                currentCount > 0 && previousMessageCount > 0 && 
+                currentCount > 0 &&
+                        previousMessageCount > 0 &&
                         abs(currentCount - previousMessageCount) > 1 -> {
                     // 使用更具体的通知方法而不是 notifyDataSetChanged
                     if (currentCount > previousMessageCount) {
@@ -419,7 +434,7 @@ class ChatActivity : BaseHistoryActivity(),
                     }
                 }
             }
-            
+
             previousMessageCount = currentCount
         }
 
@@ -432,16 +447,14 @@ class ChatActivity : BaseHistoryActivity(),
                     // 只有当前处于"自动跟随"状态，才让新消息把列表带到底部
                     if (!isUserDragging && shouldAutoScroll) {
                         binding.chatMessagesRecyclerview.scrollToPosition(
-                            chatMessageAdapter.itemCount - 1
+                                chatMessageAdapter.itemCount - 1
                         )
                     }
                 }
-
-
                 is MessageUpdateEvent.ItemChanged -> {
                     chatMessageAdapter.notifyItemChanged(
-                        event.position,
-                        ChatMessageAdapter.PAYLOAD_CONTENT_UPDATE
+                            event.position,
+                            ChatMessageAdapter.PAYLOAD_CONTENT_UPDATE
                     )
 
                     // 如果用户已经手动滑走，就完全不要动他的视图
@@ -471,9 +484,6 @@ class ChatActivity : BaseHistoryActivity(),
                         }
                     }
                 }
-
-
-
                 is MessageUpdateEvent.HistoryLoaded -> {
                     binding.swipeRefreshLayout.isRefreshing = false
                     chatMessageAdapter.notifyItemRangeInserted(0, event.count)
@@ -481,7 +491,6 @@ class ChatActivity : BaseHistoryActivity(),
                     chatMessageAdapter.markMessagesAsAnimated(0, event.count)
                     binding.chatMessagesRecyclerview.scrollToPosition(event.count)
                 }
-
                 is MessageUpdateEvent.NoMoreHistory -> {
                     binding.swipeRefreshLayout.isRefreshing = false
                     Toast.makeText(this, "没有更多历史消息了", Toast.LENGTH_SHORT).show()
@@ -494,9 +503,10 @@ class ChatActivity : BaseHistoryActivity(),
         super.onResume()
         // 每次恢复时重新加载历史列表，确保数据同步
         historyViewModel.loadHistory()
-        
+
         // 同步联网搜索状态（从其他页面返回时可能已改变）
-        val isWebSearchEnabled = com.example.myapplication.utils.AppPreferences.getWebSearchEnabled()
+        val isWebSearchEnabled =
+                com.example.myapplication.utils.AppPreferences.getWebSearchEnabled()
         inputBarFragment.setWebSearchEnabled(isWebSearchEnabled)
         viewModel.toggleSearch(isWebSearchEnabled)
     }
@@ -510,81 +520,86 @@ class ChatActivity : BaseHistoryActivity(),
         // The actual observation code is already in place in setupChatRecyclerView
     }
 
-
-
-
-
     // ========== InputBarFragment.InputBarListener 实现 ==========
-    
-    override fun onSendClick(text: String, imageUris: List<android.net.Uri>, fileUris: List<android.net.Uri>) {
+
+    override fun onSendClick(
+            text: String,
+            imageUris: List<android.net.Uri>,
+            fileUris: List<android.net.Uri>
+    ) {
         sendMessage(text, imageUris, fileUris)
     }
-    
+
     override fun onStopClick() {
         viewModel.stopGeneration()
         Toast.makeText(this, "正在停止生成...", Toast.LENGTH_SHORT).show()
     }
-    
+
     override fun onAttachmentClick(anchor: View) {
         attachmentManager.showAttachmentOptions(anchor)
     }
-    
+
     override fun onInputModeToggle(isKeyboardMode: Boolean) {
         this.isKeyboardMode = isKeyboardMode
         if (!isKeyboardMode) {
             // 隐藏键盘
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            val imm =
+                    getSystemService(Context.INPUT_METHOD_SERVICE) as
+                            android.view.inputmethod.InputMethodManager
             imm.hideSoftInputFromWindow(window.decorView.windowToken, 0)
         }
     }
-    
+
     override fun onModelSelectorClick() {
         showModelSelectorDialog()
     }
-    
+
     override fun onWebSearchToggle(isEnabled: Boolean) {
         android.util.Log.d("ChatActivity", "onWebSearchToggle 被调用，isEnabled: $isEnabled")
-        
+
         // 同步状态到 ViewModel
         viewModel.toggleSearch(isEnabled)
         android.util.Log.d("ChatActivity", "已调用 viewModel.toggleSearch($isEnabled)")
-        
+
         // 不再保存状态到 SharedPreferences，状态仅在当前会话有效
-        
+
         // 显示提示
         val message = if (isEnabled) "联网搜索已开启" else "联网搜索已关闭"
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
-    
+
     override fun onVoiceInputStart() {
         voiceRecognitionManager.startRecognition()
     }
-    
+
     override fun onVoiceInputEnd() {
         voiceRecognitionManager.stopRecognition()
     }
-    
+
     override fun onVoiceInputCancel() {
         voiceRecognitionManager.cancelRecognition()
     }
 
     // 弹出对话框
     private fun showMessageActionsDialog(
-        message: ChatMessage,
-        anchorView: View,
-        rawX: Int,
-        @Suppress("UNUSED_PARAMETER") rawY: Int
+            message: ChatMessage,
+            anchorView: View,
+            rawX: Int,
+            @Suppress("UNUSED_PARAMETER") rawY: Int
     ) {
         val location = IntArray(2)
         anchorView.getLocationOnScreen(location)
         val anchorBottomY = location[1] + anchorView.height
 
-        MessageActionsBottomSheet
-            .newInstance(message, rawX, anchorBottomY, this)
-            .show(supportFragmentManager, "message_actions")
+        MessageActionsBottomSheet.newInstance(message, rawX, anchorBottomY, this)
+                .show(supportFragmentManager, "message_actions")
     }
 
-    private fun sendMessage(text: String, imageUris: List<android.net.Uri>, fileUris: List<android.net.Uri>) {
+    private fun sendMessage(
+            text: String,
+            imageUris: List<android.net.Uri>,
+            fileUris: List<android.net.Uri>
+    ) {
         try {
             // 如果没有输入文本也没有选中附件，提示用户
             if (text.isEmpty() && imageUris.isEmpty() && fileUris.isEmpty()) {
@@ -607,7 +622,6 @@ class ChatActivity : BaseHistoryActivity(),
                     showOCRProgressDialog()
                 }
                 viewModel.sendMessageWithAttachments(text, imageUris, fileUris)
-
 
                 // 没有图片时无需等待OCR回调，可直接清空预览
                 if (imageUris.isEmpty()) {
@@ -659,8 +673,6 @@ class ChatActivity : BaseHistoryActivity(),
         ocrProgressDialog?.show()
     }
 
-
-
     // 语音识别相关方法已移至 VoiceRecognitionManager
 
     /** 处理权限请求结果 */
@@ -684,7 +696,7 @@ class ChatActivity : BaseHistoryActivity(),
     }
 
     // ========== 语音识别回调 ==========
-    
+
     private fun onVoiceRecognitionResult(text: String) {
         // 自动切换到键盘模式，这样可以在输入框看到识别内容
         if (!isKeyboardMode) {
@@ -694,13 +706,16 @@ class ChatActivity : BaseHistoryActivity(),
         // 将识别结果填入输入框
         inputBarFragment.setInputText(text)
     }
-    
+
     private fun onRecordAudioPermissionNeeded() {
-        requestPermissions(arrayOf(android.Manifest.permission.RECORD_AUDIO), REQUEST_RECORD_AUDIO_PERMISSION)
+        requestPermissions(
+                arrayOf(android.Manifest.permission.RECORD_AUDIO),
+                REQUEST_RECORD_AUDIO_PERMISSION
+        )
     }
 
     // ========== 模型选择 ==========
-    
+
     private fun showModelSelectorDialog() {
         ModelManager.showSelector(this) { modelConfig ->
             Toast.makeText(this, "已切换到: ${modelConfig.displayName}", Toast.LENGTH_SHORT).show()
@@ -720,18 +735,12 @@ class ChatActivity : BaseHistoryActivity(),
         if (index == -1) return
 
         val old = list[index]
-        val newMsg = if (isLike) {
-            old.copy(
-                isLiked = !old.isLiked,
-                isDisliked = false
-            )
-        } else {
-            old.copy(
-                isLiked = false,
-                isDisliked = !old.isDisliked
-            )
-        }
-
+        val newMsg =
+                if (isLike) {
+                    old.copy(isLiked = !old.isLiked, isDisliked = false)
+                } else {
+                    old.copy(isLiked = false, isDisliked = !old.isDisliked)
+                }
 
         list[index] = newMsg
         chatMessageAdapter.notifyItemChanged(index)
@@ -774,27 +783,24 @@ class ChatActivity : BaseHistoryActivity(),
         }
 
         // 先按位置从大到小删除，避免下标错乱
-        positionsToRemove
-            .distinct()
-            .sortedDescending()
-            .forEach { pos ->
-                list.removeAt(pos)
-                chatMessageAdapter.notifyItemRemoved(pos)
-            }
+        positionsToRemove.distinct().sortedDescending().forEach { pos ->
+            list.removeAt(pos)
+            chatMessageAdapter.notifyItemRemoved(pos)
+        }
 
         // 同步删除到数据库
         viewModel.deleteMessagePair(timestampsToDelete)
     }
 
-
-// ====== MessageActionsBottomSheet.Listener 实现 ======
+    // ====== MessageActionsBottomSheet.Listener 实现 ======
 
     // HistoryFragment.Listener
     override fun onHistorySelected(conversationId: String) {
         binding.chatDrawerLayout.closeDrawers()
         viewModel.setConversationId(conversationId)
-        (supportFragmentManager.findFragmentById(R.id.history_fragment_container) as? HistoryFragment)
-            ?.updateCurrentConversation(conversationId)
+        (supportFragmentManager.findFragmentById(R.id.history_fragment_container) as?
+                        HistoryFragment)
+                ?.updateCurrentConversation(conversationId)
         updateSidebarSelection(null)
     }
 
@@ -809,9 +815,8 @@ class ChatActivity : BaseHistoryActivity(),
     }
 
     override fun onSelectText(message: ChatMessage) {
-        SelectTextDialogFragment
-            .newInstance(message.content)
-            .show(supportFragmentManager, "select_text")
+        SelectTextDialogFragment.newInstance(message.content)
+                .show(supportFragmentManager, "select_text")
     }
 
     override fun onSpeak(message: ChatMessage) {
@@ -824,10 +829,11 @@ class ChatActivity : BaseHistoryActivity(),
     }
     // 分享文本
     private fun shareText(text: String) {
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, text)
-        }
+        val intent =
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, text)
+                }
         startActivity(Intent.createChooser(intent, "分享对话内容"))
     }
 
@@ -855,9 +861,7 @@ class ChatActivity : BaseHistoryActivity(),
 
     // ========== 语音播放 ==========
 
-    /**
-     * 播放 AI 消息内容
-     */
+    /** 播放 AI 消息内容 */
     private fun speakMessage(message: ChatMessage) {
         if (message.content.isBlank()) {
             Toast.makeText(this, "没有可播放的内容", Toast.LENGTH_SHORT).show()

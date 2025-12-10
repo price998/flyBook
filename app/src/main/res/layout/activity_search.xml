@@ -71,4 +71,10 @@
         android:overScrollMode="never"
         android:paddingTop="8dp"/>
 
+    <!-- 空状态视图 -->
+    <include
+        android:id="@+id/emptySearch"
+        layout="@layout/empty_search"
+        android:visibility="gone" />
+
 </LinearLayout>

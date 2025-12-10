@@ -58,6 +58,9 @@
     <string name="history_dialogue">历史对话</string>
     <string name="content_description_knowledge_base">知识库</string>
     <string name="content_description_expand">展开</string>
+    <string name="search_empty_image_desc">Empty search results</string>
+    <string name="no_search_results">没有找到与\"%1$s\"相关的结果</string>
+    <string name="try_different_keywords">请尝试其他关键词</string>
     
     <!-- Content Descriptions -->
     <string name="content_description_menu_button">菜单按钮</string>

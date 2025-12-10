@@ -38,4 +38,18 @@
         app:layout_constraintTop_toTopOf="parent"
         tools:text="简单介绍一下自己" />
 
+    <TextView
+        android:id="@+id/history_subtitle"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="#666666"
+        android:textSize="13sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        app:layout_constraintTop_toBottomOf="@id/history_title"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:text="这是摘要内容，超过一行会省略展示" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
