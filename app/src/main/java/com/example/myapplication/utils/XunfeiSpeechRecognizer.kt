@@ -86,14 +86,23 @@ class XunfeiSpeechRecognizer(private val context: Context) {
      * 初始化语音识别
      */
     fun init() {
-        // 初始化科大讯飞语音引擎
-        SpeechUtility.createUtility(context, SpeechConstant.APPID + "=" + APPID)
+        // 检查 SpeechUtility 是否已初始化（在 MyApplication 中初始化）
+        // 如果未初始化，则在这里初始化
+        if (SpeechUtility.getUtility() == null) {
+            Log.d(TAG, "SpeechUtility 未初始化，正在初始化...")
+            SpeechUtility.createUtility(context, SpeechConstant.APPID + "=" + APPID)
+        }
         
         // 创建语音识别对象
         speechRecognizer = SpeechRecognizer.createRecognizer(context, initListener)
         
-        // 设置参数
-        setParams()
+        if (speechRecognizer == null) {
+            Log.e(TAG, "SpeechRecognizer 创建失败，请检查 APPID 配置和 native library")
+        } else {
+            Log.d(TAG, "SpeechRecognizer 创建成功")
+            // 设置参数
+            setParams()
+        }
     }
     
     /**

@@ -33,7 +33,7 @@
         <!-- Input Bar Fragment -->
         <androidx.fragment.app.FragmentContainerView
             android:id="@+id/input_bar_fragment"
-            android:name="com.example.myapplication.ui.common.fragments.InputBarFragment"
+            android:name="com.example.myapplication.ui.inputbar.InputBarFragment"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:layout_constraintBottom_toBottomOf="parent"

@@ -12,7 +12,7 @@ import com.example.myapplication.domain.ChatMessage
 import com.example.myapplication.network.SerperWebSearchService
 import com.example.myapplication.network.WebSearchService
 import com.example.myapplication.network.model.ApiMessage
-import com.example.myapplication.utils.AttachmentContentProcessor
+import com.example.myapplication.ui.inputbar.InputBarRepository
 import com.example.myapplication.ui.common.managers.ModelManager
 
 import kotlinx.coroutines.delay
@@ -28,7 +28,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val database = AppDatabase.getDatabase(application)
     private val repository = ChatRepository(database.messageDao(), database.conversationDao())
     private val webSearchService: WebSearchService = SerperWebSearchService()
-    private val attachmentProcessor = AttachmentContentProcessor(application)
+    private val inputBarRepository = InputBarRepository(application)
 
     // 当前对话ID
     private var conversationId: String = ""
@@ -52,14 +52,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _isGenerating = MutableLiveData(false)
     val isGenerating: LiveData<Boolean> = _isGenerating
 
-    // 联网搜索开关状态
-    private val _isSearchEnabled = MutableLiveData(false)
-    @Suppress("unused") val isSearchEnabled: LiveData<Boolean> = _isSearchEnabled
-
-    fun toggleSearch(enabled: Boolean) {
-        Log.d(TAG, "toggleSearch called with enabled: $enabled")
-        _isSearchEnabled.value = enabled
-    }
+    // 聊天状态事件（用于 View 层显示状态文案）
+    private val _chatStatus = MutableLiveData<ChatStatusEvent>(ChatStatusEvent.Idle)
+    val chatStatus: LiveData<ChatStatusEvent> = _chatStatus
 
     // 图片OCR解析状态
     private val _ocrProgress = MutableLiveData<OCRProgress>()
@@ -78,11 +73,17 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             // 先取消正在进行的生成任务
             stopGeneration()
             
+            // 等待协程完全取消后再切换对话
+            generationJob?.cancel()
+            generationJob = null
+            
             conversationId = id
             // 清空当前消息列表
             val currentList = _messages.value ?: mutableListOf()
             currentList.clear()
             _messages.value = currentList // 触发更新
+            // 重置状态
+            hasMoreHistory = true
             // 加载新对话的消息
             loadInitialMessages()
         }
@@ -230,8 +231,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     var searchResultForDisplay = ""
 
                     // --- 联网搜索逻辑 ---
-                    Log.d(TAG, "Search enabled status: ${_isSearchEnabled.value}")
-                    if (_isSearchEnabled.value == true) {
+                    // 从 InputBarViewModel 读取联网搜索状态（使用持久化存储）
+                    val isSearchEnabled = com.example.myapplication.ui.inputbar.InputBarViewModel.getWebSearchEnabled(getApplication())
+                    Log.d(TAG, "Search enabled status: $isSearchEnabled")
+                    if (isSearchEnabled) {
                         Log.d(TAG, "Starting web search for: $content")
                         try {
                             // 检查索引是否有效
@@ -240,10 +243,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 return@launch
                             }
                             
-                            // 更新UI显示正在搜索
-                            currentList[aiMsgIndex] =
-                                    ChatMessage("🔍 正在联网搜索相关信息...", false, isComplete = false,timestamp = aiTimestamp)
-                            _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
+                            // 通知 View 层显示搜索状态（UI 文案由 View 层控制）
+                            _chatStatus.value = ChatStatusEvent.WebSearching(aiMsgIndex, aiTimestamp)
 
                             // 执行搜索
                             val searchResult = webSearchService.search(content)
@@ -273,19 +274,23 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                                 return@launch
                             }
                             
-                            // 清空提示文字，准备开始流式输出
-                            currentList[aiMsgIndex] = ChatMessage("", false, isComplete = false,timestamp = aiTimestamp)
-                            _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
+                            // 通知 View 层搜索完成
+                            _chatStatus.value = ChatStatusEvent.SearchComplete(aiMsgIndex, aiTimestamp)
                         } catch (e: Exception) {
                             Log.e(TAG, "搜索失败", e)
                             // 搜索失败不影响继续对话，只是没有搜索结果
+                            _chatStatus.value = ChatStatusEvent.Idle
                         }
                     }
                     // --- 联网搜索结束 ---
 
                     val fullResponseBuilder = StringBuilder()
                     if (searchResultForDisplay.isNotEmpty()) {
-                        fullResponseBuilder.append("### 🔍 搜索结果\n\n")
+                        // 搜索结果头部使用资源字符串
+                        val searchHeader = getApplication<Application>().getString(
+                            com.example.myapplication.R.string.chat_search_result_header
+                        )
+                        fullResponseBuilder.append(searchHeader)
                         fullResponseBuilder.append(searchResultForDisplay)
                         // 确保 --- 前面有空行，避免上一行被解析为标题
                         fullResponseBuilder.append("\n\n---\n\n")
@@ -431,10 +436,217 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     } finally {
                         _isGenerating.value = false
+                        _chatStatus.value = ChatStatusEvent.Idle
                         stopGenerationFlag = false
                         generationJob = null
                     }
                 }
+    }
+
+    /**
+     * 重新生成回复（不添加新的用户消息）
+     * 用于"重新生成"功能，基于现有的对话历史重新生成 AI 回复
+     */
+    fun regenerateAnswer() {
+        if (conversationId.isEmpty()) {
+            Log.w(TAG, "conversationId为空，无法重新生成")
+            return
+        }
+
+        val currentList = _messages.value ?: mutableListOf()
+        if (currentList.isEmpty()) {
+            Log.w(TAG, "消息列表为空，无法重新生成")
+            return
+        }
+
+        val model = ModelManager.getCurrentModel(getApplication())
+        stopGenerationFlag = false
+        
+        Log.d(TAG, "=== 重新生成回复 ===")
+        Log.d(TAG, "conversationId: $conversationId")
+        Log.d(TAG, "使用模型: ${model.displayName}")
+
+        // 准备 API 消息上下文（使用现有的消息列表，不添加新的用户消息）
+        val apiMessages = currentList
+            .map { ApiMessage(if (it.isUser) "user" else "assistant", it.content) }
+            .toMutableList()
+
+        // 添加 AI 占位消息
+        val aiMsg = ChatMessage("", false, isComplete = false)
+        currentList.add(aiMsg)
+        val aiMsgIndex = currentList.size - 1
+        val aiTimestamp = aiMsg.timestamp
+        _messageUpdate.value = MessageUpdateEvent.ItemInserted(aiMsgIndex, isUserMessage = false)
+
+        // 获取最后一条用户消息的内容（用于搜索）
+        val lastUserMessage = currentList.lastOrNull { it.isUser }?.content ?: ""
+
+        generationJob = viewModelScope.launch {
+            _isGenerating.value = true
+            var searchResultForDisplay = ""
+
+            // 联网搜索逻辑
+            val isSearchEnabled = com.example.myapplication.ui.inputbar.InputBarViewModel.getWebSearchEnabled(getApplication())
+            if (isSearchEnabled && lastUserMessage.isNotEmpty()) {
+                Log.d(TAG, "Starting web search for: $lastUserMessage")
+                try {
+                    if (aiMsgIndex >= currentList.size) {
+                        Log.w(TAG, "搜索开始时aiMsgIndex超出范围")
+                        return@launch
+                    }
+                    
+                    _chatStatus.value = ChatStatusEvent.WebSearching(aiMsgIndex, aiTimestamp)
+                    val searchResult = webSearchService.search(lastUserMessage)
+                    searchResultForDisplay = searchResult
+
+                    if (apiMessages.isNotEmpty()) {
+                        val lastIndex = apiMessages.lastIndex
+                        val lastMsg = apiMessages[lastIndex]
+                        if (lastMsg.role == "user") {
+                            val newContent = """
+                                基于以下互联网搜索结果回答用户问题。如果搜索结果没有帮助，请使用你自己的知识。
+                                
+                                【搜索结果】：
+                                $searchResult
+                                
+                                【用户问题】：${lastMsg.content}
+                            """.trimIndent()
+                            apiMessages[lastIndex] = lastMsg.copy(content = newContent)
+                        }
+                    }
+
+                    if (aiMsgIndex >= currentList.size) {
+                        Log.w(TAG, "搜索完成时aiMsgIndex超出范围")
+                        return@launch
+                    }
+                    
+                    _chatStatus.value = ChatStatusEvent.SearchComplete(aiMsgIndex, aiTimestamp)
+                } catch (e: Exception) {
+                    Log.e(TAG, "搜索失败", e)
+                    _chatStatus.value = ChatStatusEvent.Idle
+                }
+            }
+
+            val fullResponseBuilder = StringBuilder()
+            if (searchResultForDisplay.isNotEmpty()) {
+                val searchHeader = getApplication<Application>().getString(
+                    com.example.myapplication.R.string.chat_search_result_header
+                )
+                fullResponseBuilder.append(searchHeader)
+                fullResponseBuilder.append(searchResultForDisplay)
+                fullResponseBuilder.append("\n\n---\n\n")
+            }
+
+            val reasoningBuilder = StringBuilder()
+            var charCount = 0
+
+            try {
+                Log.d(TAG, "开始流式请求")
+                repository.streamChat(apiMessages, model).collect { delta ->
+                    if (stopGenerationFlag) {
+                        throw java.util.concurrent.CancellationException("用户停止生成")
+                    }
+                    
+                    val deltaContent = delta.content
+                    val reasoning = delta.reasoningContent
+
+                    if (!reasoning.isNullOrEmpty()) {
+                        reasoningBuilder.append(reasoning)
+                    }
+
+                    if (!deltaContent.isNullOrEmpty()) {
+                        fullResponseBuilder.append(deltaContent)
+                        charCount += deltaContent.length
+                    }
+
+                    if (charCount >= BATCH_SIZE) {
+                        charCount = 0
+                        
+                        if (stopGenerationFlag) {
+                            throw java.util.concurrent.CancellationException("用户停止生成")
+                        }
+
+                        if (aiMsgIndex >= currentList.size) {
+                            Log.w(TAG, "aiMsgIndex超出范围")
+                            throw java.util.concurrent.CancellationException("对话已切换")
+                        }
+
+                        currentList[aiMsgIndex] = ChatMessage(
+                            content = fullResponseBuilder.toString(),
+                            isUser = false,
+                            reasoningContent = reasoningBuilder.toString().takeIf { it.isNotEmpty() },
+                            isComplete = false,
+                            timestamp = aiTimestamp
+                        )
+                        _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
+                        delay(TYPING_DELAY_MS)
+                        
+                        if (stopGenerationFlag) {
+                            throw java.util.concurrent.CancellationException("用户停止生成")
+                        }
+                    }
+                }
+
+                Log.d(TAG, "流式输出完成")
+                
+                if (aiMsgIndex >= currentList.size) {
+                    Log.w(TAG, "流式输出完成时aiMsgIndex超出范围")
+                    return@launch
+                }
+                
+                val completeMsg = ChatMessage(
+                    content = fullResponseBuilder.toString(),
+                    isUser = false,
+                    reasoningContent = reasoningBuilder.toString().takeIf { it.isNotEmpty() },
+                    isComplete = true,
+                    timestamp = aiTimestamp
+                )
+                currentList[aiMsgIndex] = completeMsg
+                _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
+                repository.saveMessage(conversationId, completeMsg)
+            } catch (e: Exception) {
+                if (e is java.util.concurrent.CancellationException || stopGenerationFlag) {
+                    Log.d(TAG, "生成已取消")
+                } else {
+                    fullResponseBuilder.append("\n[Error: ${e.message}]")
+                    Log.e(TAG, "流式输出错误", e)
+                }
+
+                if (aiMsgIndex >= currentList.size) {
+                    Log.w(TAG, "异常处理时aiMsgIndex超出范围")
+                    return@launch
+                }
+
+                currentList[aiMsgIndex] = ChatMessage(
+                    content = fullResponseBuilder.toString(),
+                    isUser = false,
+                    isComplete = true,
+                    reasoningContent = reasoningBuilder.toString().takeIf { it.isNotEmpty() },
+                    timestamp = aiTimestamp
+                )
+                _messageUpdate.value = MessageUpdateEvent.ItemChanged(aiMsgIndex)
+
+                val partialMsg = ChatMessage(
+                    content = fullResponseBuilder.toString(),
+                    isUser = false,
+                    isComplete = true,
+                    reasoningContent = reasoningBuilder.toString().takeIf { it.isNotEmpty() },
+                    timestamp = aiTimestamp
+                )
+                viewModelScope.launch {
+                    try {
+                        repository.saveMessage(conversationId, partialMsg)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error saving partial message", e)
+                    }
+                }
+            } finally {
+                _isGenerating.value = false
+                _chatStatus.value = ChatStatusEvent.Idle
+                stopGenerationFlag = false
+                generationJob = null
+            }
+        }
     }
 
     /**
@@ -451,7 +663,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * 发送带附件的消息
      */
     fun sendMessageWithAttachments(textContent: String, imageUris: List<Uri>, fileUris: List<Uri>) {
+        Log.d(TAG, "开始处理带附件的消息 - 文本长度: ${textContent.length}, 图片: ${imageUris.size}, 文件: ${fileUris.size}")
+        
         if (imageUris.isEmpty() && fileUris.isEmpty()) {
+            Log.d(TAG, "无附件，直接发送文本消息")
             sendMessage(textContent)
             return
         }
@@ -460,20 +675,26 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 // 显示处理进度
                 if (imageUris.isNotEmpty()) {
+                    Log.d(TAG, "开始OCR识别 - 图片数量: ${imageUris.size}")
                     _ocrProgress.value = OCRProgress.Recognizing(0, imageUris.size)
                 }
 
-                // 使用 AttachmentProcessor 处理所有附件
-                val finalContent = attachmentProcessor.processAttachments(
+                // 使用 InputBarRepository 处理所有附件
+                Log.d(TAG, "调用 InputBarRepository 处理附件")
+                val finalContent = inputBarRepository.processAttachments(
                     textContent = textContent,
                     imageUris = imageUris,
                     fileUris = fileUris,
                     onProgress = { current, total ->
+                        Log.d(TAG, "OCR进度更新: $current/$total")
                         _ocrProgress.value = OCRProgress.Recognizing(current, total)
                     }
                 )
 
+                Log.d(TAG, "附件处理完成 - 最终内容长度: ${finalContent.length}")
+
                 if (finalContent.isBlank()) {
+                    Log.w(TAG, "附件解析结果为空")
                     if (imageUris.isNotEmpty()) {
                         _ocrProgress.value = OCRProgress.Error("附件解析结果为空，请重试")
                     }
@@ -481,10 +702,12 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 // 发送消息
+                Log.d(TAG, "发送包含附件内容的消息")
                 sendMessage(finalContent)
 
                 // 更新进度状态
                 if (imageUris.isNotEmpty()) {
+                    Log.d(TAG, "OCR识别成功")
                     _ocrProgress.value = OCRProgress.Success(finalContent)
                     delay(500)
                     _ocrProgress.value = OCRProgress.Idle
@@ -497,26 +720,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-//    // 删除多条消息（比如只删单条 AI 时用）
-//    fun deleteMessages(messages: List<ChatMessage>) {
-//        if (messages.isEmpty()) return
-//        viewModelScope.launch {
-//            repository.deleteMessagesByTimestamps(
-//                conversationId = conversationId,
-//                timestamps = messages.map { it.timestamp }
-//            )
-//        }
-//    }
-//
-//    // 删除一组：用户问题 + AI 回答
-//    fun deleteMessagePair(userMessage: ChatMessage, aiMessage: ChatMessage) {
-//        viewModelScope.launch {
-//            repository.deleteMessagesByTimestamps(
-//                conversationId = conversationId,
-//                timestamps = listOf(userMessage.timestamp, aiMessage.timestamp)
-//            )
-//        }
-//    }
     fun updateMessageLikeState(message: ChatMessage) {
         if (conversationId.isEmpty()) return
         viewModelScope.launch {
@@ -551,4 +754,17 @@ sealed class MessageUpdateEvent {
     data class ItemChanged(val position: Int) : MessageUpdateEvent()
     data class HistoryLoaded(val count: Int) : MessageUpdateEvent()
     data object NoMoreHistory : MessageUpdateEvent()
+}
+
+/**
+ * 聊天状态事件（用于 View 层显示状态文案）
+ * 将 UI 文案的控制权交给 View 层，ViewModel 只负责通知状态变化
+ */
+sealed class ChatStatusEvent {
+    /** 正在联网搜索 */
+    data class WebSearching(val position: Int, val timestamp: Long) : ChatStatusEvent()
+    /** 搜索完成，准备生成回复 */
+    data class SearchComplete(val position: Int, val timestamp: Long) : ChatStatusEvent()
+    /** 空闲状态 */
+    data object Idle : ChatStatusEvent()
 }

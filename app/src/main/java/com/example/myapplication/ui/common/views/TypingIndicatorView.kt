@@ -81,7 +81,7 @@ class TypingIndicatorView @JvmOverloads constructor(
     /**
      * 启动跳动动画
      */
-    fun startAnimation() {
+    private fun startAnimation() {
         // 如果动画已经在运行，不重复启动
         if (animatorSet?.isRunning == true) return
         
@@ -121,7 +121,7 @@ class TypingIndicatorView @JvmOverloads constructor(
     /**
      * 停止动画
      */
-    fun stopAnimation() {
+    private fun stopAnimation() {
         animatorSet?.cancel()
         animatorSet = null
         

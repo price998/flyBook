@@ -3,6 +3,8 @@ package com.example.myapplication.utils
 import android.content.Context
 import android.os.Bundle
 import android.util.Log
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.BuildConfig
 import com.iflytek.cloud.ErrorCode
 import com.iflytek.cloud.InitListener
@@ -14,7 +16,7 @@ import com.iflytek.cloud.SynthesizerListener
 /**
  * 科大讯飞语音合成（TTS）工具类
  * 
- * 用于将文本转换为语音播放
+ * 用于将文本转换为语音播放，支持 Markdown 文本清理和 UI 反馈
  */
 class XunfeiSpeechSynthesizer(private val context: Context) {
     
@@ -31,15 +33,16 @@ class XunfeiSpeechSynthesizer(private val context: Context) {
         }
         
         // 发音人选项
-        const val VOICE_XIAOYAN = "xiaoyan"      // 小燕 - 普通话女声
-        const val VOICE_XIAOYU = "xiaoyu"        // 小宇 - 普通话男声
-        const val VOICE_XIAOMEI = "xiaomei"      // 小美 - 粤语女声
+//        const val VOICE_XIAOYAN = "xiaoyan"      // 小燕 - 普通话女声
+//        const val VOICE_XIAOYU = "xiaoyu"        // 小宇 - 普通话男声
+//        const val VOICE_XIAOMEI = "xiaomei"      // 小美 - 粤语女声
         const val VOICE_XIAOLIN = "xiaolin"      // 小琳 - 台湾普通话女声
-        const val VOICE_XIAORONG = "xiaorong"    // 小蓉 - 四川话女声
+//        const val VOICE_XIAORONG = "xiaorong"    // 小蓉 - 四川话女声
     }
     
     private var speechSynthesizer: SpeechSynthesizer? = null
     private var isSpeaking = false
+    private val activity: AppCompatActivity? = context as? AppCompatActivity
     
     // 回调监听器
     private var onStartListener: (() -> Unit)? = null
@@ -60,7 +63,9 @@ class XunfeiSpeechSynthesizer(private val context: Context) {
         override fun onSpeakBegin() {
             Log.d(TAG, "开始播放")
             isSpeaking = true
-            onStartListener?.invoke()
+            activity?.runOnUiThread {
+                onStartListener?.invoke()
+            } ?: onStartListener?.invoke()
         }
         
         override fun onSpeakPaused() {
@@ -82,12 +87,24 @@ class XunfeiSpeechSynthesizer(private val context: Context) {
         
         override fun onCompleted(error: SpeechError?) {
             isSpeaking = false
-            if (error != null) {
-                Log.e(TAG, "播放错误：${error.errorDescription}")
-                onErrorListener?.invoke("语音播放错误：${error.errorDescription}")
-            } else {
-                Log.d(TAG, "播放完成")
-                onCompleteListener?.invoke()
+            activity?.runOnUiThread {
+                if (error != null) {
+                    Log.e(TAG, "播放错误：${error.errorDescription}")
+                    val errorMsg = "语音播放错误：${error.errorDescription}"
+                    onErrorListener?.invoke(errorMsg)
+                    Toast.makeText(context, errorMsg, Toast.LENGTH_SHORT).show()
+                } else {
+                    Log.d(TAG, "播放完成")
+                    onCompleteListener?.invoke()
+                }
+            } ?: run {
+                if (error != null) {
+                    Log.e(TAG, "播放错误：${error.errorDescription}")
+                    onErrorListener?.invoke("语音播放错误：${error.errorDescription}")
+                } else {
+                    Log.d(TAG, "播放完成")
+                    onCompleteListener?.invoke()
+                }
             }
         }
         
@@ -117,7 +134,7 @@ class XunfeiSpeechSynthesizer(private val context: Context) {
             // 设置合成引擎（云端）
             setParameter(SpeechConstant.ENGINE_TYPE, SpeechConstant.TYPE_CLOUD)
             // 设置发音人
-            setParameter(SpeechConstant.VOICE_NAME, VOICE_XIAOYAN)
+            setParameter(SpeechConstant.VOICE_NAME, VOICE_XIAOLIN)
             // 设置语速（0-100，默认50）
             setParameter(SpeechConstant.SPEED, "50")
             // 设置音调（0-100，默认50）
@@ -133,12 +150,19 @@ class XunfeiSpeechSynthesizer(private val context: Context) {
      * 开始语音合成并播放
      * 
      * @param text 要播放的文本
+     * @param cleanMarkdown 是否清理 Markdown 格式，默认 true
      */
-    fun speak(text: String) {
+    fun speak(text: String, cleanMarkdown: Boolean = true) {
         if (text.isBlank()) {
             Log.w(TAG, "文本为空，跳过播放")
+            activity?.runOnUiThread {
+                Toast.makeText(context, "没有可播放的内容", Toast.LENGTH_SHORT).show()
+            }
             return
         }
+        
+        // 清理 Markdown 格式（如果需要）
+        val processedText = if (cleanMarkdown) cleanMarkdownText(text) else text
         
         // 如果正在播放，先停止
         if (isSpeaking) {
@@ -146,33 +170,27 @@ class XunfeiSpeechSynthesizer(private val context: Context) {
         }
         
         speechSynthesizer?.let { synthesizer ->
-            val ret = synthesizer.startSpeaking(text, synthesizerListener)
+            val ret = synthesizer.startSpeaking(processedText, synthesizerListener)
             if (ret != ErrorCode.SUCCESS) {
                 Log.e(TAG, "合成失败，错误码：$ret")
-                onErrorListener?.invoke("启动语音合成失败，错误码：$ret")
+                val errorMsg = "启动语音合成失败，错误码：$ret"
+                onErrorListener?.invoke(errorMsg)
+                activity?.runOnUiThread {
+                    Toast.makeText(context, "语音播放失败", Toast.LENGTH_SHORT).show()
+                }
             } else {
-                Log.d(TAG, "开始合成，文本长度：${text.length}")
+                Log.d(TAG, "开始合成，文本长度：${processedText.length}")
             }
         } ?: run {
-            onErrorListener?.invoke("语音合成器未初始化")
+            val errorMsg = "语音合成器未初始化"
+            onErrorListener?.invoke(errorMsg)
+            activity?.runOnUiThread {
+                Toast.makeText(context, "语音播放初始化失败", Toast.LENGTH_SHORT).show()
+            }
         }
     }
     
-    /**
-     * 暂停播放
-     */
-    fun pause() {
-        speechSynthesizer?.pauseSpeaking()
-        Log.d(TAG, "暂停播放")
-    }
-    
-    /**
-     * 继续播放
-     */
-    fun resume() {
-        speechSynthesizer?.resumeSpeaking()
-        Log.d(TAG, "继续播放")
-    }
+
     
     /**
      * 停止播放
@@ -188,45 +206,75 @@ class XunfeiSpeechSynthesizer(private val context: Context) {
      */
     fun isSpeaking(): Boolean = isSpeaking
     
-    /**
-     * 设置发音人
-     */
-    fun setVoice(voiceName: String) {
-        speechSynthesizer?.setParameter(SpeechConstant.VOICE_NAME, voiceName)
-    }
+//    /**
+//     * 设置发音人
+//     */
+//    fun setVoice(voiceName: String) {
+//        speechSynthesizer?.setParameter(SpeechConstant.VOICE_NAME, voiceName)
+//    }
+//
+//    /**
+//     * 设置语速（0-100）
+//     */
+//    fun setSpeed(speed: Int) {
+//        val validSpeed = speed.coerceIn(0, 100)
+//        speechSynthesizer?.setParameter(SpeechConstant.SPEED, validSpeed.toString())
+//    }
+//
+//    /**
+//     * 设置音量（0-100）
+//     */
+//    fun setVolume(volume: Int) {
+//        val validVolume = volume.coerceIn(0, 100)
+//        speechSynthesizer?.setParameter(SpeechConstant.VOLUME, validVolume.toString())
+//    }
+    
+//    // ========== 监听器设置 ==========
+//
+//    fun setOnStartListener(listener: () -> Unit) {
+//        onStartListener = listener
+//    }
+//
+//    fun setOnCompleteListener(listener: () -> Unit) {
+//        onCompleteListener = listener
+//    }
+//
+//    fun setOnErrorListener(listener: (String) -> Unit) {
+//        onErrorListener = listener
+//    }
+//
+//    fun setOnProgressListener(listener: (Int) -> Unit) {
+//        onProgressListener = listener
+//    }
     
     /**
-     * 设置语速（0-100）
+     * 清理 Markdown 格式，提取纯文本
      */
-    fun setSpeed(speed: Int) {
-        val validSpeed = speed.coerceIn(0, 100)
-        speechSynthesizer?.setParameter(SpeechConstant.SPEED, validSpeed.toString())
-    }
-    
-    /**
-     * 设置音量（0-100）
-     */
-    fun setVolume(volume: Int) {
-        val validVolume = volume.coerceIn(0, 100)
-        speechSynthesizer?.setParameter(SpeechConstant.VOLUME, validVolume.toString())
-    }
-    
-    // ========== 监听器设置 ==========
-    
-    fun setOnStartListener(listener: () -> Unit) {
-        onStartListener = listener
-    }
-    
-    fun setOnCompleteListener(listener: () -> Unit) {
-        onCompleteListener = listener
-    }
-    
-    fun setOnErrorListener(listener: (String) -> Unit) {
-        onErrorListener = listener
-    }
-    
-    fun setOnProgressListener(listener: (Int) -> Unit) {
-        onProgressListener = listener
+    private fun cleanMarkdownText(text: String): String {
+        var result = text
+        
+        // 移除代码块
+        result = result.replace(Regex("```[\\s\\S]*?```"), "代码块已省略。")
+        // 移除行内代码
+        result = result.replace(Regex("`[^`]+`"), "")
+        // 移除链接，保留文本
+        result = result.replace(Regex("\\[([^]]+)]\\([^)]+\\)"), "$1")
+        // 移除图片
+        result = result.replace(Regex("!\\[([^]]*)]\\([^)]+\\)"), "")
+        // 移除标题符号
+        result = result.replace(Regex("^#{1,6}\\s*", RegexOption.MULTILINE), "")
+        // 移除加粗和斜体
+        result = result.replace(Regex("\\*{1,2}([^*]+)\\*{1,2}"), "$1")
+        result = result.replace(Regex("_{1,2}([^_]+)_{1,2}"), "$1")
+        // 移除分隔线
+        result = result.replace(Regex("^[-*_]{3,}$", RegexOption.MULTILINE), "")
+        // 移除列表符号
+        result = result.replace(Regex("^\\s*[-*+]\\s+", RegexOption.MULTILINE), "")
+        result = result.replace(Regex("^\\s*\\d+\\.\\s+", RegexOption.MULTILINE), "")
+        // 移除多余空行
+        result = result.replace(Regex("\n{3,}"), "\n\n")
+        
+        return result.trim()
     }
     
     /**

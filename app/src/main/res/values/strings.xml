@@ -80,4 +80,8 @@
     
     <!-- Login Activity -->
     <string name="welcome_back_format">欢迎回来，%1$s\n账户ID: %2$s</string>
+    
+    <!-- Chat Status Messages -->
+    <string name="chat_searching_web">🔍 正在联网搜索相关信息…</string>
+    <string name="chat_search_result_header">🔍 搜索结果&#10;&#10;</string>
 </resources>

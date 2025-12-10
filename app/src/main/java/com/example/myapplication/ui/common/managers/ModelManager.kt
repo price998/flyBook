@@ -1,14 +1,14 @@
 package com.example.myapplication.ui.common.managers
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.MutableLiveData
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.myapplication.ui.common.adapter.ModelAdapter
+import com.example.myapplication.ui.inputbar.adapters.ModelSelectorAdapter
 import com.example.myapplication.config.ModelConfig
 import com.example.myapplication.config.ModelRegistry
 import com.example.myapplication.databinding.DialogModelSelectorBinding
-import com.example.myapplication.utils.AppPreferences
 import com.google.android.material.bottomsheet.BottomSheetDialog
 
 /**
@@ -25,12 +25,16 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 object ModelManager {
     
     private const val TAG = "ModelManager"
+    private const val PREFS_NAME = "app_preferences"
+    private const val KEY_SELECTED_MODEL_ID = "selected_model_id"
     
     private var appContext: Context? = null
     
     private val _currentModel = MutableLiveData<ModelConfig>()
     
-
+    private fun getPreferences(): SharedPreferences? {
+        return appContext?.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    }
     
     /**
      * 确保已初始化（延迟初始化）
@@ -39,7 +43,12 @@ object ModelManager {
         if (appContext == null) {
             appContext = context.applicationContext
             // 从 SharedPreferences 加载上次选择的模型
-            val savedModel = AppPreferences.getSelectedModel(appContext!!)
+            val modelId = getPreferences()?.getString(KEY_SELECTED_MODEL_ID, null)
+            val savedModel = if (modelId != null) {
+                ModelRegistry.getModelById(modelId) ?: ModelRegistry.DEFAULT_MODEL
+            } else {
+                ModelRegistry.DEFAULT_MODEL
+            }
             _currentModel.value = savedModel
             android.util.Log.d(TAG, "ModelManager 初始化完成，当前模型: ${savedModel.displayName}")
         }
@@ -58,7 +67,7 @@ object ModelManager {
         _currentModel.value = modelConfig
         
         // 持久化到 SharedPreferences
-        AppPreferences.saveSelectedModel(appContext!!, modelConfig.id)
+        getPreferences()?.edit()?.putString(KEY_SELECTED_MODEL_ID, modelConfig.id)?.apply()
     }
     
     /**
@@ -86,7 +95,7 @@ object ModelManager {
         
         binding.modelListRecyclerview.layoutManager = LinearLayoutManager(activity)
         
-        val adapter = ModelAdapter(
+        val adapter = ModelSelectorAdapter(
             models = ModelRegistry.ALL_MODELS,
             selectedModelId = getCurrentModel(activity).id,
             onItemClick = { modelConfig ->

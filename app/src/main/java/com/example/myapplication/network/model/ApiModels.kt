@@ -7,7 +7,7 @@ import com.google.gson.annotations.SerializedName
 data class EnhancedChatRequest(
     val model: String,
     val messages: List<ApiMessage>,
-    val stream: Boolean = false,
+    val stream: Boolean = true,
     @SerializedName("max_tokens") val maxTokens: Int = 4096,
     @SerializedName("enable_thinking") val enableThinking: Boolean = false,
     @SerializedName("thinking_budget") val thinkingBudget: Int = 4096,

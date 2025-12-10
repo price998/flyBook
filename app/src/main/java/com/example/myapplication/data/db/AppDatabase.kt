@@ -22,7 +22,7 @@ import com.example.myapplication.data.db.chat.MessageEntity
         AttachmentEntity::class,
         AccountEntity::class
     ],
-    version = 2,
+    version = 1,
     exportSchema = true // 导出 schema 便于管理迁移
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -85,8 +85,9 @@ abstract class AppDatabase : RoomDatabase() {
                     // 未来添加新迁移时，在这里注册：
                     // .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     
-                    // ⚠️ 仅在开发阶段使用，生产环境必须移除！
-                    // .fallbackToDestructiveMigration()
+                    // ⚠️ 开发阶段：允许破坏性迁移（会清空数据）
+                    // 生产环境必须移除此行，并提供完整的迁移路径！
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

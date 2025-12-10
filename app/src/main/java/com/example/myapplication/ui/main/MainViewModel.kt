@@ -16,14 +16,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _topicList = MutableLiveData<List<RecommendedTopic>>()
     val topicList: LiveData<List<RecommendedTopic>> = _topicList
 
-    private val _isVoiceMode = MutableLiveData(false)
-    val isVoiceMode: LiveData<Boolean> = _isVoiceMode
-
     private val _toastMessage = MutableLiveData<String?>()
     val toastMessage: LiveData<String?> = _toastMessage
-
-    private val _shouldClearInput = MutableLiveData(false)
-    val shouldClearInput: LiveData<Boolean> = _shouldClearInput
 
 
 
@@ -39,24 +33,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
 
     /**
-     * 设置语音模式
-     */
-    fun setVoiceMode(isVoiceMode: Boolean) {
-        _isVoiceMode.value = isVoiceMode
-    }
-
-    /**
      * Toast 消息已显示
      */
     fun onToastShown() {
         _toastMessage.value = null
-    }
-
-    /**
-     * 输入框已清空
-     */
-    fun onInputCleared() {
-        _shouldClearInput.value = false
     }
 
     /**
@@ -65,14 +45,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     @Suppress("unused")
     fun showToast(message: String) {
         _toastMessage.value = message
-    }
-
-    /**
-     * 清空输入框
-     */
-    @Suppress("unused")
-    fun clearInput() {
-        _shouldClearInput.value = true
     }
 
 }

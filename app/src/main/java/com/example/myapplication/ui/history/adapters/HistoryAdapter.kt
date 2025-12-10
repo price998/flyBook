@@ -7,12 +7,12 @@ import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
-import com.example.myapplication.R
 import com.example.myapplication.databinding.ItemHistoryBinding
 import com.example.myapplication.domain.ChatHistory
+import androidx.core.content.ContextCompat
+import com.example.myapplication.R
 
 class HistoryAdapter(
         private var historyList: MutableList<ChatHistory>,
@@ -21,69 +21,66 @@ class HistoryAdapter(
         private val onItemLongClick: ((ChatHistory) -> Unit)? = null
 ) : RecyclerView.Adapter<HistoryAdapter.HistoryViewHolder>() {
 
-  // 搜索关键字，用于高亮显示
-  var searchKeyword: String = ""
-    set(value) {
-      field = value
-      notifyItemRangeChanged(0, historyList.size)
-    }
+    // 搜索关键字，用于高亮显示
+    var searchKeyword: String = ""
+        set(value) {
+            field = value
+            notifyItemRangeChanged(0, historyList.size)
+        }
 
-  // 高性能数据更新
+    //高性能数据更新
   fun updateData(newList: List<ChatHistory>) {
-    // xxDiffCallback自定义的差异对比规则类
     val diffCallback = HistoryDiffCallback(historyList, newList)
-    // 2. 计算新旧列表的差异
     val diffResult = DiffUtil.calculateDiff(diffCallback)
-    // 3. 先清空旧列表，再添加新列表
     historyList.clear()
     historyList.addAll(newList)
-    // DiffUtil只刷新有变化的条目,替代notifyDataSetChanged全量刷新
+    //DiffUtil只刷新有变化的条目,替代notifyDataSetChanged全量刷新
     diffResult.dispatchUpdatesTo(this)
   }
-  // 定义“如何对比新旧列表”
+    //定义"如何对比新旧列表"
   private class HistoryDiffCallback(
-          private val oldList: List<ChatHistory>,
-          private val newList: List<ChatHistory>
+    private val oldList: List<ChatHistory>,
+    private val newList: List<ChatHistory>
   ) : DiffUtil.Callback() {
     override fun getOldListSize(): Int = oldList.size
     override fun getNewListSize(): Int = newList.size
-
+    
     override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
       return oldList[oldItemPosition].id == newList[newItemPosition].id
     }
-
+    
     override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
       return oldList[oldItemPosition] == newList[newItemPosition]
     }
   }
-  // 选中状态管理：局部刷新选中项
+    //选中状态管理：局部刷新选中项
   fun setSelectedId(id: String?) {
     val previousId = currentConversationId
     currentConversationId = id
-
+    
     // 刷新变化的部分
     if (previousId != null) {
-      val prevIndex = historyList.indexOfFirst { it.id == previousId }
-      if (prevIndex != -1) notifyItemChanged(prevIndex)
+        val prevIndex = historyList.indexOfFirst { it.id == previousId }
+        if (prevIndex != -1) notifyItemChanged(prevIndex)
     }
     if (id != null) {
-      val newIndex = historyList.indexOfFirst { it.id == id }
-      if (newIndex != -1) notifyItemChanged(newIndex)
+        val newIndex = historyList.indexOfFirst { it.id == id }
+        if (newIndex != -1) notifyItemChanged(newIndex)
     }
   }
-  // ViewHolder 初始化
+    //ViewHolder 初始化
   inner class HistoryViewHolder(private val binding: ItemHistoryBinding) :
           RecyclerView.ViewHolder(binding.root) {
 
     init {
-      // 条目点击事件
+        //条目点击事件
       binding.root.setOnClickListener {
         val position = adapterPosition
         if (position != RecyclerView.NO_POSITION) {
           onItemClick(historyList[position])
         }
       }
-      // 条目长按事件
+        // 条目长按事件
       binding.root.setOnLongClickListener {
         val position = adapterPosition
         if (position != RecyclerView.NO_POSITION) {
@@ -94,68 +91,48 @@ class HistoryAdapter(
         }
       }
     }
-    // 数据绑定到 UI
+    //数据绑定到 UI
     fun bind(history: ChatHistory) {
-      // 显示文本，处理高亮
-      if (searchKeyword.isNotEmpty()) {
-        // 标题高亮处理
-        // 1. 创建可设置样式的字符串（SpannableString）
-        val titleSpannable = SpannableString(history.title)
-        // 2. 找关键字在标题里的起始位置
-        val titleStartIndex = history.title.indexOf(searchKeyword, ignoreCase = true)
-        if (titleStartIndex >= 0) {
-          titleSpannable.setSpan(
-                  ForegroundColorSpan(Color.RED),
-                  titleStartIndex,
-                  titleStartIndex + searchKeyword.length,
-                  Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-          )
+        //显示文本，处理高亮
+        if (searchKeyword.isNotEmpty()) {
+            val titleSpannable = SpannableString(history.title)
+            val startIndex = history.title.indexOf(searchKeyword, ignoreCase = true)
+            if (startIndex >= 0) {
+                titleSpannable.setSpan(
+                    ForegroundColorSpan(Color.RED),
+                    startIndex,
+                    startIndex + searchKeyword.length,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+            binding.historyTitle.text = titleSpannable
+        } else {
+            binding.historyTitle.text = history.title
         }
-        binding.historyTitle.text = titleSpannable
-
-        // 内容（副标题）高亮处理
-        val subtitleSpannable = SpannableString(history.lastMessage)
-        val subtitleStartIndex = history.lastMessage.indexOf(searchKeyword, ignoreCase = true)
-        if (subtitleStartIndex >= 0) {
-          subtitleSpannable.setSpan(
-                  ForegroundColorSpan(Color.RED),
-                  subtitleStartIndex,
-                  subtitleStartIndex + searchKeyword.length,
-                  Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-          )
-        }
-        binding.historySubtitle.text = subtitleSpannable
-      } else {
-        binding.historyTitle.text = history.title
-        binding.historySubtitle.text = history.lastMessage
-      }
-
-      // 置顶图标显隐
+        
+        //置顶图标显隐
       binding.iconPinned.visibility = if (history.isPinned) View.VISIBLE else View.GONE
 
       // 背景色（优先级：选中 > 置顶 > 普通）
       val context = binding.root.context
       val isSelected = history.id == currentConversationId
-
-      val backgroundRes =
-              when {
-                history.id == currentConversationId -> R.drawable.bg_history_item_selected
-                history.isPinned -> R.drawable.bg_history_item_pinned
-                else -> R.drawable.bg_history_item_normal
-              }
+      
+      val backgroundRes = when {
+          history.id == currentConversationId -> R.drawable.bg_history_item_selected
+          history.isPinned -> R.drawable.bg_history_item_pinned
+          else -> R.drawable.bg_history_item_normal
+      }
       binding.root.setBackgroundResource(backgroundRes)
-
+      
       // 选中时字体颜色变化
       if (isSelected) {
-        binding.historyTitle.setTextColor(
-                ContextCompat.getColor(context, R.color.sidebar_item_selected_text)
-        )
+           binding.historyTitle.setTextColor(ContextCompat.getColor(context, R.color.sidebar_item_selected_text))
       } else {
-        binding.historyTitle.setTextColor(Color.BLACK)
+           binding.historyTitle.setTextColor(Color.BLACK)
       }
     }
   }
-  // 适配器生命周期方法
+    //适配器生命周期方法
   override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): HistoryViewHolder {
     val binding = ItemHistoryBinding.inflate(LayoutInflater.from(parent.context), parent, false)
     return HistoryViewHolder(binding)
