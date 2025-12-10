@@ -7,16 +7,12 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.db.AppDatabase
 import com.example.myapplication.domain.ChatHistory
+import com.example.myapplication.domain.ChatMessage
 import com.example.myapplication.ui.chat.ChatRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import com.example.myapplication.domain.ChatMessage
 
-/**
- * 历史对话列表的 ViewModel
- * 在 MainActivity 和 ChatActivity 之间共享
- */
 class HistoryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isLoading = MutableLiveData<Boolean>(false)
@@ -24,55 +20,50 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
 
     // 1. 依赖注入：初始化数据层仓库（Repository）
     private val repository = HistoryRepository(application)
-    private val chatRepository = ChatRepository(
-        AppDatabase.getDatabase(application).messageDao(),
-        AppDatabase.getDatabase(application).conversationDao()
-    )
+    private val chatRepository =
+            ChatRepository(
+                    AppDatabase.getDatabase(application).messageDao(),
+                    AppDatabase.getDatabase(application).conversationDao()
+            )
     // 2. 数据容器：MutableLiveData（内部可修改）+ LiveData（外部仅可观察），保证数据单向流动
     private val _historyList = MutableLiveData<List<ChatHistory>>()
     val historyList: LiveData<List<ChatHistory>> = _historyList
 
-    private val _searchResultsEmpty = MutableLiveData<Boolean>(false)
-    val searchResultsEmpty: LiveData<Boolean> = _searchResultsEmpty
-
-    @Suppress("unused")
-    private val _errorMessage = MutableLiveData<String?>()
-    @Suppress("unused")
-    val errorMessage: LiveData<String?> = _errorMessage
+    @Suppress("unused") private val _errorMessage = MutableLiveData<String?>()
+    @Suppress("unused") val errorMessage: LiveData<String?> = _errorMessage
     // 3. 初始化自动加载历史列表
     init {
         loadHistory()
     }
 
-    /**
-     * 加载历史对话列表
-     */
+    /** 加载历史对话列表 */
     fun loadHistory() {
-        viewModelScope.launch {
-            _errorMessage.value = null
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 val list = repository.getHistoryList()
-                _historyList.value = list
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = null
+                    _historyList.value = list
+                }
             } catch (e: Exception) {
-                _errorMessage.value = "加载失败: ${e.message}"
+                withContext(Dispatchers.Main) { _errorMessage.value = "加载失败: ${e.message}" }
             }
         }
     }
 
-    /**
-     * 创建新对话
-     */
+    /** 创建新对话 */
     fun createNewConversation(title: String, onResult: (String) -> Unit) {
         android.util.Log.d("HistoryViewModel", "开始创建对话: $title")
         viewModelScope.launch {
             try {
                 val displayTitle = if (title.length > 20) title.substring(0, 20) + "..." else title
                 android.util.Log.d("HistoryViewModel", "显示标题: $displayTitle")
-                val id = withContext(Dispatchers.IO) {
-                    val conversationId = chatRepository.createConversation(displayTitle)
-                    android.util.Log.d("HistoryViewModel", "数据库创建成功，ID: $conversationId")
-                    conversationId
-                }
+                val id =
+                        withContext(Dispatchers.IO) {
+                            val conversationId = chatRepository.createConversation(displayTitle)
+                            android.util.Log.d("HistoryViewModel", "数据库创建成功，ID: $conversationId")
+                            conversationId
+                        }
                 android.util.Log.d("HistoryViewModel", "准备回调，ID: $id")
                 onResult(id)
                 android.util.Log.d("HistoryViewModel", "回调完成，开始加载历史")
@@ -84,123 +75,100 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    /**
-     * 重命名对话
-     */
+    /** 重命名对话 */
     fun renameConversation(conversationId: String, newTitle: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 chatRepository.updateConversationTitle(conversationId, newTitle)
-                loadHistory()
+                val list = repository.getHistoryList()
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = null
+                    _historyList.value = list
+                }
             } catch (e: Exception) {
-                _errorMessage.value = "重命名失败: ${e.message}"
+                withContext(Dispatchers.Main) { _errorMessage.value = "重命名失败: ${e.message}" }
             }
         }
     }
 
-    /**
-     * 删除对话
-     * 在 HistoryFragment 长按菜单中调用
-     */
+    /** 删除对话 在 HistoryFragment 长按菜单中调用 */
     fun deleteConversation(conversationId: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 repository.deleteConversation(conversationId)
-                loadHistory()
+                val list = repository.getHistoryList()
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = null
+                    _historyList.value = list
+                }
             } catch (e: Exception) {
-                _errorMessage.value = "删除失败: ${e.message}"
+                withContext(Dispatchers.Main) { _errorMessage.value = "删除失败: ${e.message}" }
             }
         }
     }
 
-    /**
-     * 切换置顶状态
-     * 在 HistoryFragment 长按菜单中调用
-     */
+    /** 切换置顶状态 在 HistoryFragment 长按菜单中调用 */
     fun togglePin(conversationId: String, currentIsPinned: Boolean) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
                 repository.togglePin(conversationId, !currentIsPinned)
-                loadHistory()
+                val list = repository.getHistoryList()
+                withContext(Dispatchers.Main) {
+                    _errorMessage.value = null
+                    _historyList.value = list
+                }
             } catch (e: Exception) {
-                _errorMessage.value = "操作失败: ${e.message}"
+                withContext(Dispatchers.Main) { _errorMessage.value = "操作失败: ${e.message}" }
             }
         }
     }
 
-    /**
-     * 搜索历史对话
-     */
-    @Suppress("unused")
-    fun search(query: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _errorMessage.value = null
-
-            try {
-                val results = if (query.isBlank()) {
-                    // 如果查询为空，返回所有对话
-                    repository.getHistoryList()
-                } else {
-                    // 否则执行搜索
-                    repository.searchHistory(query)
-                }
-
-                _historyList.value = results
-                _searchResultsEmpty.value = results.isEmpty()
-            } catch (e: Exception) {
-                _errorMessage.value = "搜索失败: ${e.message}"
-                _searchResultsEmpty.value = true
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-
-    /**
-     * 生成一条长对话假数据（默认 120 轮 = 240 条消息）
-     * 在 IO 线程里通过 ChatRepository 一条条写入，自动维护 messageCount 等字段
-     */
-    fun generateFakeConversation(
-        pairCount: Int = 1000,
-        onResult: (String) -> Unit
-    ) {
+    /** 生成一条长对话假数据（默认 120 轮 = 240 条消息） 在 IO 线程里通过 ChatRepository 一条条写入，自动维护 messageCount 等字段 */
+    fun generateFakeConversation(pairCount: Int = 1000, onResult: (String) -> Unit) {
         viewModelScope.launch {
             try {
-                val conversationId = withContext(Dispatchers.IO) {
-                    // 会话标题
-                    val title = "假数据长对话（$pairCount 轮）"
-                    val id = chatRepository.createConversation(title)
+                val conversationId =
+                        withContext(Dispatchers.IO) {
+                            // 会话标题
+                            val title = "假数据长对话（$pairCount 轮）"
+                            val id = chatRepository.createConversation(title)
 
-                    val baseTime = System.currentTimeMillis() - pairCount * 4_000L
+                            val baseTime = System.currentTimeMillis() - pairCount * 4_000L
 
-                    for (i in 0 until pairCount) {
-                        val round = i + 1
+                            for (i in 0 until pairCount) {
+                                val round = i + 1
 
-                        // 用户消息
-                        val userMsg = ChatMessage(
-                            content = "第 $round 轮提问：这是用于测试长列表和分页加载的假数据问题。",
-                            isUser = true,
-                            timestamp = baseTime + i * 4_000L
-                        )
+                                // 用户消息
+                                val userMsg =
+                                        ChatMessage(
+                                                content = "第 $round 轮提问：这是用于测试长列表和分页加载的假数据问题。",
+                                                isUser = true,
+                                                timestamp = baseTime + i * 4_000L
+                                        )
 
-                        // AI 消息（稍微长一点）
-                        val botMsg = ChatMessage(
-                            content = buildString {
-                                append("第 $round 轮回答：这是 AI 的假数据回复，用来测试 RecyclerView 渲染和分页加载性能。\n")
-                                append("这一轮是总共 $pairCount 轮中的第 $round 轮，你可以上拉加载更多历史消息。")
-                            },
-                            isUser = false,
-                            timestamp = baseTime + i * 4_000L + 2_000L
-                        )
+                                // AI 消息（稍微长一点）
+                                val botMsg =
+                                        ChatMessage(
+                                                content =
+                                                        buildString {
+                                                            append(
+                                                                    "第 $round 轮回答：这是 AI 的假数据回复，用来测试 RecyclerView 渲染和分页加载性能。\n"
+                                                            )
+                                                            append(
+                                                                    "这一轮是总共 $pairCount 轮中的第 $round 轮，你可以上拉加载更多历史消息。"
+                                                            )
+                                                        },
+                                                isUser = false,
+                                                timestamp = baseTime + i * 4_000L + 2_000L
+                                        )
 
-                        // 利用已有的 saveMessage，顺带更新会话的 messageCount、lastMessagePreview 等
-                        chatRepository.saveMessage(id, userMsg)
-                        chatRepository.saveMessage(id, botMsg)
-                    }
+                                // 利用已有的 saveMessage，顺带更新会话的 messageCount、lastMessagePreview 等
+                                chatRepository.saveMessage(id, userMsg)
+                                chatRepository.saveMessage(id, botMsg)
+                            }
 
-                    id
-                }
+                            id
+                        }
 
                 // 刷新历史列表
                 loadHistory()

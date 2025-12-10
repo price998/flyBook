@@ -16,13 +16,12 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.R
 import com.example.myapplication.databinding.ActivitySearchBinding
 import com.example.myapplication.ui.chat.ChatActivity
-import com.example.myapplication.ui.history.HistoryViewModel
 import com.example.myapplication.ui.history.adapters.HistoryAdapter
 
 class SearchActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySearchBinding
-    private lateinit var viewModel: HistoryViewModel
+    private lateinit var viewModel: SearchViewModel // ← 改为SearchViewModel！
     private lateinit var adapter: HistoryAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,8 +32,8 @@ class SearchActivity : AppCompatActivity() {
         // 适配状态栏颜色
         WindowCompat.setDecorFitsSystemWindows(window, true)
 
-        // 初始化 ViewModel
-        viewModel = ViewModelProvider(this)[HistoryViewModel::class.java]
+        // 初始化 ViewModel（绑定到SearchActivity的生命周期）
+        viewModel = ViewModelProvider(this)[SearchViewModel::class.java]
 
         setupRecyclerView()
         setupListeners()
@@ -109,8 +108,8 @@ class SearchActivity : AppCompatActivity() {
 
     // 观察 ViewModel 数据变化
     private fun observeViewModel() {
-        // 观察搜索结果
-        viewModel.historyList.observe(this) { list ->
+        // 观察搜索结果（改为searchResults）
+        viewModel.searchResults.observe(this) { list -> // ← historyList 改为 searchResults！
             adapter.updateData(list)
             updateEmptyView(list.isEmpty() && binding.etSearch.text.toString().isNotBlank())
         }
@@ -122,7 +121,6 @@ class SearchActivity : AppCompatActivity() {
 
         // 观察加载状态
         viewModel.isLoading.observe(this) { isLoading ->
-            // 这里可以添加加载状态UI更新
             if (isLoading) {
                 // 显示加载中
             } else {
