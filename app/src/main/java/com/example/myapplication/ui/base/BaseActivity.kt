@@ -2,7 +2,7 @@ package com.example.myapplication.ui.base
 
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.ui.common.navigation.AppNavigator
-import com.example.myapplication.ui.history.HistoryFragment
+import com.example.myapplication.ui.history.view.HistoryFragment
 
 /**
  * 简化的基础 Activity
