@@ -21,13 +21,42 @@ import java.io.BufferedReader
 import java.io.IOException
 
 /**
- * API 客户端 - 单例模式，复用 OkHttpClient
+ * API 客户端（网络层核心类）
+ * 
+ * 职责：
+ * 1. 封装 AI API 的网络请求逻辑
+ * 2. 处理 SSE（Server-Sent Events）流式响应
+ * 3. 将流式数据转换为 Kotlin Flow
+ * 4. 管理请求生命周期（支持取消）
+ * 
+ * 设计模式：
+ * - 单例模式（object）：全局唯一实例，复用 OkHttpClient 连接池
+ * - 接口实现：实现 ApiService 接口，便于测试和替换
+ * 
+ * 技术特点：
+ * - 使用 OkHttp 处理 HTTP 请求
+ * - 使用 Kotlin Flow 处理流式数据
+ * - 使用 callbackFlow 将回调转换为 Flow
+ * - 支持请求取消（Flow 取消时自动取消 OkHttp 请求）
+ * 
+ * 安全性：
+ * - API Key 从 BuildConfig 读取（不硬编码）
+ * - 使用 lazy 延迟初始化，避免启动时加载
  */
 object ApiClient : ApiService {
     private const val TAG = "ApiClient"
+    
+    /** AI API 端点 URL */
     private const val API_URL = "https://api.siliconflow.cn/v1/chat/completions"
     
-    // 从 BuildConfig 读取 API Key（安全存储）
+    /**
+     * API Key（从 BuildConfig 读取，安全存储）
+     * 
+     * 配置方式：
+     * 1. 在项目根目录创建 local.properties 文件
+     * 2. 添加：AI_API_KEY=your_api_key_here
+     * 3. BuildConfig 会自动生成 AI_API_KEY 常量
+     */
     private val apiKey: String by lazy {
         BuildConfig.AI_API_KEY.also {
             if (it.isEmpty()) {
@@ -36,11 +65,52 @@ object ApiClient : ApiService {
         }
     }
     
-    // 复用共享的 OkHttpClient
+    /**
+     * 复用共享的 OkHttpClient
+     * 
+     * 优势：
+     * - 复用连接池，减少 TCP 握手开销
+     * - 统一配置超时、拦截器等
+     * - 减少内存占用
+     */
     private val client: OkHttpClient by lazy { HttpClientProvider.client }
     
+    /** JSON 序列化/反序列化工具 */
     private val gson = Gson()
     
+    /**
+     * 流式对话请求（核心方法）
+     * 
+     * 功能：
+     * 1. 发送聊天请求到 AI API
+     * 2. 接收 SSE 流式响应
+     * 3. 解析每个数据块（chunk）
+     * 4. 通过 Flow 发送给调用者
+     * 
+     * 参数：
+     * @param messages 对话历史消息列表
+     * @param modelConfig 模型配置（包含模型名称、参数等）
+     * 
+     * 返回：
+     * @return Flow<Delta> 流式数据流，每个 Delta 包含一小段生成的文本
+     * 
+     * 流程：
+     * 1. 构造请求体（包含消息、模型配置）
+     * 2. 发送 POST 请求到 API
+     * 3. 逐行读取响应（SSE 格式）
+     * 4. 解析 "data: " 开头的行
+     * 5. 将解析后的 Delta 发送到 Flow
+     * 6. 遇到 "[DONE]" 或连接关闭时结束
+     * 
+     * 异常处理：
+     * - 网络错误：通过 Flow.close(exception) 传递
+     * - 解析错误：记录日志但继续处理后续数据
+     * - 请求取消：Flow 取消时自动取消 OkHttp 请求
+     * 
+     * 线程安全：
+     * - 使用 flowOn(Dispatchers.IO) 在 IO 线程执行
+     * - 避免阻塞主线程
+     */
     override fun streamChat(
         messages: List<ApiMessage>,
         modelConfig: ModelConfig
