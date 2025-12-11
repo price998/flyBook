@@ -2,6 +2,8 @@ package com.example.myapplication.ui.search
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -29,8 +31,8 @@ class SearchActivity : AppCompatActivity() {
         binding = ActivitySearchBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // 适配状态栏颜色
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        // 设置状态栏为白色
+        setupStatusBar()
 
         // 初始化 ViewModel（绑定到SearchActivity的生命周期）
         viewModel = ViewModelProvider(this)[SearchViewModel::class.java]
@@ -153,5 +155,22 @@ class SearchActivity : AppCompatActivity() {
     private fun hideKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(binding.etSearch.windowToken, 0)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // 确保状态栏颜色正确
+        setupStatusBar()
+    }
+
+    // 设置状态栏为白色
+    private fun setupStatusBar() {
+        window.statusBarColor = Color.WHITE
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+
+        // Android 6.0以上，设置状态栏图标为深色（白色背景下需要深色图标）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        }
     }
 }

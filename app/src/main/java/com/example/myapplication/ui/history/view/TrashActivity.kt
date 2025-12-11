@@ -1,7 +1,11 @@
 package com.example.myapplication.ui.history.view
 
+import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.databinding.ActivityTrashBinding
@@ -18,15 +22,19 @@ class TrashActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityTrashBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // 设置状态栏为白色
+        setupStatusBar()
+
         // 初始化 ViewModel、Adapter
         viewModel = ViewModelProvider(this)[TrashViewModel::class.java]
 
         adapter =
-            TrashAdapter(
-                mutableListOf(),
-                onRestore = { item -> viewModel.restore(item.id) },
-                onDelete = { item -> viewModel.hardDelete(item.id) }
-            )
+                TrashAdapter(
+                        mutableListOf(),
+                        onRestore = { item -> viewModel.restore(item.id) },
+                        onDelete = { item -> viewModel.hardDelete(item.id) }
+                )
         // 绑定 RecyclerView
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
         binding.recyclerView.adapter = adapter
@@ -44,5 +52,16 @@ class TrashActivity : AppCompatActivity() {
         super.onResume()
         viewModel.cleanupExpiredTrash()
         viewModel.loadTrash()
+    }
+
+    // 设置状态栏为白色
+    private fun setupStatusBar() {
+        window.statusBarColor = Color.WHITE
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+
+        // Android 6.0以上，设置状态栏图标为深色（白色背景下需要深色图标）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        }
     }
 }

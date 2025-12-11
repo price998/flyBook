@@ -1,10 +1,13 @@
 package com.example.myapplication.ui.auth
 
+import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import com.example.myapplication.databinding.ActivityLoginBinding
 import com.example.myapplication.ui.main.MainActivity
 
@@ -17,10 +20,10 @@ import com.example.myapplication.ui.main.MainActivity
  * 3. 与 ViewModel 交互
  * 4. 根据数据变化更新界面
  *
- * MVVM 架构中的角色：
- * LoginActivity（View层）→ 观察 → AccountViewModel（ViewModel层）
+ * MVVM 架构中的角色： LoginActivity（View层）→ 观察 → AccountViewModel（ViewModel层）
+ * ```
  *                        ← 通知 ←
- *
+ * ```
  * AppCompatActivity：Android 的 Activity 基类，提供向后兼容的特性
  */
 class LoginActivity : AppCompatActivity() {
@@ -35,26 +38,17 @@ class LoginActivity : AppCompatActivity() {
      * - 懒加载：只有第一次使用时才创建
      * - 线程安全：确保只创建一个实例
      *
-     * private：只在这个 Activity 内部使用
-     * val：不可变引用（但 ViewModel 内部的数据可以变化）
+     * private：只在这个 Activity 内部使用 val：不可变引用（但 ViewModel 内部的数据可以变化）
      */
     private val viewModel: AccountViewModel by viewModels()
-    
-    /**
-     * ViewBinding 实例
-     * 用于访问布局中的所有控件，替代 findViewById
-     */
+
+    /** ViewBinding 实例 用于访问布局中的所有控件，替代 findViewById */
     private lateinit var binding: ActivityLoginBinding
 
-    /**
-     * 当前是否为注册模式
-     * true = 注册模式，false = 登录模式
-     */
+    /** 当前是否为注册模式 true = 注册模式，false = 登录模式 */
     private var isRegisterMode = false
 
-    /**
-     * 临时存储注册时的账号密码，用于注册成功后自动登录
-     */
+    /** 临时存储注册时的账号密码，用于注册成功后自动登录 */
     private var pendingUsername: String? = null
     private var pendingPassword: String? = null
 
@@ -81,6 +75,9 @@ class LoginActivity : AppCompatActivity() {
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // 设置状态栏为白色
+        setupStatusBar()
+
         // 初始化所有界面控件和事件监听器
         initViews()
 
@@ -94,8 +91,7 @@ class LoginActivity : AppCompatActivity() {
     /**
      * 初始化界面控件
      *
-     * 功能：设置按钮点击事件监听器
-     * 使用 ViewBinding 访问控件，无需 findViewById
+     * 功能：设置按钮点击事件监听器 使用 ViewBinding 访问控件，无需 findViewById
      */
     private fun initViews() {
         // ==================== 设置事件监听器 ====================
@@ -179,20 +175,14 @@ class LoginActivity : AppCompatActivity() {
          *
          * 直接调用 ViewModel 的 logout 方法
          */
-        binding.btnLogout.setOnClickListener {
-            viewModel.logout()
-        }
+        binding.btnLogout.setOnClickListener { viewModel.logout() }
 
-        /**
-         * "忘记密码"点击事件
-         */
+        /** "忘记密码"点击事件 */
         binding.tvForgotPassword.setOnClickListener {
             Toast.makeText(this, "忘记密码功能开发中...", Toast.LENGTH_SHORT).show()
         }
 
-        /**
-         * 模式切换点击事件（登录 ↔ 注册）
-         */
+        /** 模式切换点击事件（登录 ↔ 注册） */
         binding.tvModeSwitch.setOnClickListener {
             isRegisterMode = !isRegisterMode
             updateUIMode()
@@ -231,8 +221,7 @@ class LoginActivity : AppCompatActivity() {
          * - null：表示未登录
          * - AccountInfo 对象：表示已登录，包含用户名和账户ID
          *
-         * 执行逻辑：
-         * 根据账户信息是否为 null，显示不同的界面状态
+         * 执行逻辑： 根据账户信息是否为 null，显示不同的界面状态
          */
         viewModel.accountInfo.observe(this) { account ->
             if (account != null) {
@@ -268,7 +257,7 @@ class LoginActivity : AppCompatActivity() {
                 // 清空输入框（提升用户体验）
                 binding.etUsername.setText("")
                 binding.etPassword.setText("")
-                
+
                 // 跳转到对话页面
                 val intent = android.content.Intent(this, MainActivity::class.java)
                 startActivity(intent)
@@ -287,9 +276,7 @@ class LoginActivity : AppCompatActivity() {
          *
          * 参数 success：登出是否成功
          *
-         * 执行逻辑：
-         * 显示登出成功的提示消息
-         * 注意：界面切换由 accountInfo 观察者负责，这里只显示提示
+         * 执行逻辑： 显示登出成功的提示消息 注意：界面切换由 accountInfo 观察者负责，这里只显示提示
          */
         viewModel.logoutResult.observe(this) { success ->
             if (success) {
@@ -318,9 +305,7 @@ class LoginActivity : AppCompatActivity() {
 
                 // 使用注册时的账号密码自动登录
                 pendingUsername?.let { username ->
-                    pendingPassword?.let { password ->
-                        viewModel.login(username, password)
-                    }
+                    pendingPassword?.let { password -> viewModel.login(username, password) }
                 }
 
                 // 清空临时存储的账号密码
@@ -329,7 +314,7 @@ class LoginActivity : AppCompatActivity() {
             } else {
                 // 注册失败
                 Toast.makeText(this, "注册失败，请稍后重试", Toast.LENGTH_SHORT).show()
-                
+
                 // 清空临时存储的账号密码
                 pendingUsername = null
                 pendingPassword = null
@@ -354,24 +339,24 @@ class LoginActivity : AppCompatActivity() {
             if (exists) {
                 // 用户名已存在，提示用户并询问是否前往登录
                 android.app.AlertDialog.Builder(this)
-                    .setTitle("提示")
-                    .setMessage("账号已存在，是否前往登录？")
-                    .setPositiveButton("前往登录") { _, _ ->
-                        // 切换到登录模式
-                        isRegisterMode = false
-                        updateUIMode()
-                    }
-                    .setNegativeButton("取消", null)
-                    .show()
+                        .setTitle("提示")
+                        .setMessage("账号已存在，是否前往登录？")
+                        .setPositiveButton("前往登录") { _, _ ->
+                            // 切换到登录模式
+                            isRegisterMode = false
+                            updateUIMode()
+                        }
+                        .setNegativeButton("取消", null)
+                        .show()
             } else {
                 // 用户名不存在，执行注册
                 val username = binding.etUsername.text.toString().trim()
                 val password = binding.etPassword.text.toString().trim()
-                
+
                 // 保存账号密码，用于注册成功后自动登录
                 pendingUsername = username
                 pendingPassword = password
-                
+
                 viewModel.register(username, password)
             }
         }
@@ -389,18 +374,18 @@ class LoginActivity : AppCompatActivity() {
     private fun updateUIMode() {
         if (isRegisterMode) {
             // ==================== 注册模式 ====================
-            binding.tilPasswordConfirm.visibility = View.VISIBLE  // 显示确认密码框
-            binding.tvForgotPassword.visibility = View.GONE       // 隐藏"忘记密码"
-            binding.btnLogin.text = "注册"                        // 按钮文字改为"注册"
-            binding.tvModeTip.text = "已有账号？"                  // 提示文字
-            binding.tvModeSwitch.text = "立即登录"                // 切换文字
+            binding.tilPasswordConfirm.visibility = View.VISIBLE // 显示确认密码框
+            binding.tvForgotPassword.visibility = View.GONE // 隐藏"忘记密码"
+            binding.btnLogin.text = "注册" // 按钮文字改为"注册"
+            binding.tvModeTip.text = "已有账号？" // 提示文字
+            binding.tvModeSwitch.text = "立即登录" // 切换文字
         } else {
             // ==================== 登录模式 ====================
-            binding.tilPasswordConfirm.visibility = View.GONE     // 隐藏确认密码框
-            binding.tvForgotPassword.visibility = View.VISIBLE    // 显示"忘记密码"
-            binding.btnLogin.text = "登录"                        // 按钮文字改为"登录"
-            binding.tvModeTip.text = "没有账号？"                  // 提示文字
-            binding.tvModeSwitch.text = "立即注册"                // 切换文字
+            binding.tilPasswordConfirm.visibility = View.GONE // 隐藏确认密码框
+            binding.tvForgotPassword.visibility = View.VISIBLE // 显示"忘记密码"
+            binding.btnLogin.text = "登录" // 按钮文字改为"登录"
+            binding.tvModeTip.text = "没有账号？" // 提示文字
+            binding.tvModeSwitch.text = "立即注册" // 切换文字
         }
 
         // 清空所有输入框和错误提示
@@ -441,11 +426,12 @@ class LoginActivity : AppCompatActivity() {
 
         // ==================== 显示账户信息 ====================
         binding.tvAccountInfo.visibility = View.VISIBLE
-        binding.tvAccountInfo.text = getString(
-            com.example.myapplication.R.string.welcome_back_format,
-            username,
-            accountId
-        )
+        binding.tvAccountInfo.text =
+                getString(
+                        com.example.myapplication.R.string.welcome_back_format,
+                        username,
+                        accountId
+                )
         binding.btnEnterApp.visibility = View.VISIBLE
         binding.btnLogout.visibility = View.VISIBLE
     }
@@ -478,5 +464,16 @@ class LoginActivity : AppCompatActivity() {
         // ==================== 重置为登录模式 ====================
         isRegisterMode = false
         updateUIMode()
+    }
+
+    // 设置状态栏为白色
+    private fun setupStatusBar() {
+        window.statusBarColor = Color.WHITE
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+
+        // Android 6.0以上，设置状态栏图标为深色（白色背景下需要深色图标）
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        }
     }
 }

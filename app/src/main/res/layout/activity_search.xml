@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     tools:context=".ui.search.SearchActivity"
     android:orientation="vertical"
-    android:background="#F5F5F5"> <!-- 浅灰色背景 -->
+    android:background="#FFFFFF"> <!-- 白色背景 -->
 
     <!-- 顶部搜索栏区域 -->
     <LinearLayout
@@ -15,8 +15,9 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:layout_marginTop="10dp"
-        android:padding="10dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="10dp"
+        android:paddingHorizontal="10dp"
         android:background="#FFFFFF">
 
         <!-- 搜索框容器 (圆角灰色背景) -->
