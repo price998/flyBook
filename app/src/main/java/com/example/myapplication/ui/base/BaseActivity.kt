@@ -1,6 +1,8 @@
 package com.example.myapplication.ui.base
 
+import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import com.example.myapplication.ui.common.navigation.AppNavigator
 import com.example.myapplication.ui.history.HistoryFragment
 
@@ -11,6 +13,7 @@ import com.example.myapplication.ui.history.HistoryFragment
  * - 提供通用的 Activity 功能
  * - WindowInsets 处理（通过 WindowInsetsHelper）
  * - 生命周期管理
+ * - 统一状态栏样式
  * 
  * 设计原则：
  * - 单一职责：只提供最基础的通用功能
@@ -19,6 +22,27 @@ import com.example.myapplication.ui.history.HistoryFragment
  */
 abstract class BaseActivity : AppCompatActivity() {
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // 统一设置状态栏样式
+        setupStatusBar()
+    }
+
+    /**
+     * 设置状态栏样式
+     * 统一使用白色背景 + 深色图标
+     */
+    private fun setupStatusBar() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.WHITE
+        window.navigationBarColor = android.graphics.Color.WHITE
+        
+        // 设置状态栏图标为深色（适配白色背景）
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true  // 深色图标
+            isAppearanceLightNavigationBars = true  // 深色导航栏图标
+        }
+    }
 
     /**
      * 设置 WindowInsets 适配

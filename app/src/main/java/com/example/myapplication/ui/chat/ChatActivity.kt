@@ -98,7 +98,6 @@ class ChatActivity : BaseHistoryActivity(),
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         binding = ActivityChatBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -608,7 +607,9 @@ class ChatActivity : BaseHistoryActivity(),
             is OCRProgress.Error -> {
                 ocrProgressDialog?.dismiss()
                 ocrProgressDialog = null
-                Toast.makeText(this, progress.message, Toast.LENGTH_LONG).show()
+                android.util.Log.e("ChatActivity", "OCR错误: ${progress.message}")
+                Toast.makeText(this, "错误: ${progress.message}", Toast.LENGTH_LONG).show()
+                // 错误时不清空附件，让用户可以重试
             }
         }
     }

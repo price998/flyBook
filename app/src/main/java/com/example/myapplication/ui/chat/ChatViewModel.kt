@@ -663,7 +663,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * 发送带附件的消息
      */
     fun sendMessageWithAttachments(textContent: String, imageUris: List<Uri>, fileUris: List<Uri>) {
-        Log.d(TAG, "开始处理带附件的消息 - 文本长度: ${textContent.length}, 图片: ${imageUris.size}, 文件: ${fileUris.size}")
+        Log.d(TAG, "========== 发送带附件的消息 ==========")
+        Log.d(TAG, "文本长度: ${textContent.length}")
+        Log.d(TAG, "图片数量: ${imageUris.size}")
+        Log.d(TAG, "文件数量: ${fileUris.size}")
         
         if (imageUris.isEmpty() && fileUris.isEmpty()) {
             Log.d(TAG, "无附件，直接发送文本消息")
@@ -687,35 +690,41 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     fileUris = fileUris,
                     onProgress = { current, total ->
                         Log.d(TAG, "OCR进度更新: $current/$total")
-                        _ocrProgress.value = OCRProgress.Recognizing(current, total)
+                        _ocrProgress.postValue(OCRProgress.Recognizing(current, total))
                     }
                 )
 
-                Log.d(TAG, "附件处理完成 - 最终内容长度: ${finalContent.length}")
+                Log.d(TAG, "========== 附件处理结果 ==========")
+                Log.d(TAG, "最终内容长度: ${finalContent.length}")
+                Log.d(TAG, "最终内容预览: ${finalContent.take(300)}")
 
                 if (finalContent.isBlank()) {
-                    Log.w(TAG, "附件解析结果为空")
+                    Log.e(TAG, "✗ 附件解析结果为空！")
                     if (imageUris.isNotEmpty()) {
-                        _ocrProgress.value = OCRProgress.Error("附件解析结果为空，请重试")
+                        _ocrProgress.value = OCRProgress.Error("图片识别失败，未识别到任何文字")
+                    } else if (fileUris.isNotEmpty()) {
+                        _ocrProgress.value = OCRProgress.Error("文件解析失败，无法读取文件内容")
                     }
                     return@launch
                 }
 
                 // 发送消息
-                Log.d(TAG, "发送包含附件内容的消息")
+                Log.d(TAG, "✓ 发送包含附件内容的消息")
                 sendMessage(finalContent)
 
                 // 更新进度状态
                 if (imageUris.isNotEmpty()) {
-                    Log.d(TAG, "OCR识别成功")
+                    Log.d(TAG, "✓ OCR识别成功")
                     _ocrProgress.value = OCRProgress.Success(finalContent)
                     delay(500)
                     _ocrProgress.value = OCRProgress.Idle
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "处理附件失败", e)
+                Log.e(TAG, "✗ 处理附件失败", e)
                 if (imageUris.isNotEmpty()) {
                     _ocrProgress.value = OCRProgress.Error("解析失败: ${e.message}")
+                } else {
+                    _ocrProgress.value = OCRProgress.Error("文件处理失败: ${e.message}")
                 }
             }
         }

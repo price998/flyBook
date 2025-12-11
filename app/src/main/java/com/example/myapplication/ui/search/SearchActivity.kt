@@ -6,10 +6,9 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.myapplication.ui.base.BaseActivity
 import com.example.myapplication.ui.history.adapters.HistoryAdapter
 import com.example.myapplication.databinding.ActivitySearchBinding
 import com.example.myapplication.ui.chat.ChatActivity
@@ -23,7 +22,7 @@ import com.example.myapplication.ui.history.HistoryViewModel
  * - 实时搜索并高亮关键字
  * - 点击搜索结果跳转到对应对话
  */
-class SearchActivity : AppCompatActivity() {
+class SearchActivity : BaseActivity() {
 
     private lateinit var binding: ActivitySearchBinding
     private lateinit var viewModel: HistoryViewModel
@@ -33,9 +32,6 @@ class SearchActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivitySearchBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        
-        // 适配状态栏颜色
-        WindowCompat.setDecorFitsSystemWindows(window, true)
 
         // 初始化 ViewModel
         viewModel = ViewModelProvider(this)[HistoryViewModel::class.java]
