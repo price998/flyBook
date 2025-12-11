@@ -55,8 +55,7 @@
         android:textSize="15sp"
         android:drawablePadding="12dp"
         app:drawableStartCompat="@drawable/ic_new_chat"
-        android:background="@drawable/bg_sidebar_button"
-        android:backgroundTint="#F0F0F0" />
+        android:background="@drawable/bg_sidebar_button" />
 
     <!-- Knowledge Base -->
     <TextView
@@ -72,8 +71,7 @@
         android:textSize="15sp"
         android:drawablePadding="12dp"
         app:drawableStartCompat="@drawable/ic_book"
-        android:background="@drawable/bg_sidebar_button"
-        android:backgroundTint="#F0F0F0" />
+        android:background="@drawable/bg_sidebar_button" />
 
     <!-- Debug: Generate fake conversation data -->
     <TextView
@@ -89,8 +87,7 @@
         android:textSize="15sp"
         android:drawablePadding="12dp"
         app:drawableStartCompat="@drawable/ic_new_chat"
-        android:background="@drawable/bg_sidebar_button"
-        android:backgroundTint="#F0F0F0" />
+        android:background="@drawable/bg_sidebar_button" />
 
     <!-- 保留分隔线，标识菜单与历史列表区分 -->
     <View
