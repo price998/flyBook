@@ -1,11 +1,14 @@
-package com.example.myapplication.ui.history
+package com.example.myapplication.ui.history.view
 
 import android.content.Context
+import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
@@ -13,19 +16,20 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.R
-import com.example.myapplication.ui.history.adapters.HistoryAdapter
 import com.example.myapplication.databinding.DialogCustomInputBinding
 import com.example.myapplication.databinding.FragmentHistoryBinding
 import com.example.myapplication.databinding.ItemDialogMenuBinding
+import com.example.myapplication.ui.history.viewmodel.HistoryViewModel
+import com.example.myapplication.ui.history.adapters.HistoryAdapter
 
 /**
  * 历史对话列表 Fragment
- * 
+ *
  * 职责：
  * - 显示历史对话列表
  * - 处理对话的置顶、重命名、删除操作
  * - 通过回调接口通知宿主 Activity 对话选择事件
- * 
+ *
  * 使用方式：
  * ```kotlin
  * val fragment = HistoryFragment.newInstance(currentConversationId)
@@ -45,7 +49,7 @@ class HistoryFragment : Fragment() {
     private var currentConversationId: String? = null
     private lateinit var viewModel: HistoryViewModel
     private lateinit var historyAdapter: HistoryAdapter
-    
+
     private var _binding: FragmentHistoryBinding? = null
     private val binding get() = _binding!!
 
@@ -80,17 +84,24 @@ class HistoryFragment : Fragment() {
             },
             onItemLongClick = { history ->
                 val items = listOf(
-                    mapOf("text" to if (history.isPinned) "取消置顶" else "置顶会话", "icon" to R.drawable.icon_pin),
+                    mapOf(
+                        "text" to if (history.isPinned) "取消置顶" else "置顶会话",
+                        "icon" to R.drawable.icon_pin
+                    ),
                     mapOf("text" to "重命名会话标题", "icon" to R.drawable.icon_edit),
                     mapOf("text" to "删除会话", "icon" to R.drawable.icon_delete)
                 )
 
-                val adapter = object : android.widget.ArrayAdapter<Map<String, Any>>(
+                val adapter = object : ArrayAdapter<Map<String, Any>>(
                     requireContext(),
                     R.layout.item_dialog_menu,
                     items
                 ) {
-                    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                    override fun getView(
+                        position: Int,
+                        convertView: View?,
+                        parent: ViewGroup
+                    ): View {
                         val binding: ItemDialogMenuBinding
                         val v: View
                         if (convertView == null) {
@@ -107,11 +118,11 @@ class HistoryFragment : Fragment() {
                         binding.ivMenuIcon.setImageResource(iconRes)
                         binding.tvMenuText.text = text
                         if (text == "删除会话") {
-                            binding.tvMenuText.setTextColor(android.graphics.Color.RED)
-                            binding.ivMenuIcon.setColorFilter(android.graphics.Color.RED)
+                            binding.tvMenuText.setTextColor(Color.RED)
+                            binding.ivMenuIcon.setColorFilter(Color.RED)
                         } else {
-                            binding.tvMenuText.setTextColor(android.graphics.Color.BLACK)
-                            binding.ivMenuIcon.setColorFilter(android.graphics.Color.BLACK)
+                            binding.tvMenuText.setTextColor(Color.BLACK)
+                            binding.ivMenuIcon.setColorFilter(Color.BLACK)
                         }
                         return v
                     }
@@ -124,6 +135,7 @@ class HistoryFragment : Fragment() {
                             1 -> showRenameDialog(history.title) { newTitle ->
                                 viewModel.renameConversation(history.id, newTitle)
                             }
+
                             2 -> showDeleteConfirmDialog {
                                 viewModel.deleteConversation(history.id)
                                 listener?.onConversationDeleted(history.id)
@@ -137,14 +149,14 @@ class HistoryFragment : Fragment() {
         binding.historyRecyclerview.layoutManager = LinearLayoutManager(requireContext())
         binding.historyRecyclerview.adapter = historyAdapter
         val divider = DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL)
-        divider.setDrawable(ColorDrawable(android.graphics.Color.parseColor("#EEEEEE")))
+        divider.setDrawable(ColorDrawable(Color.parseColor("#EEEEEE")))
         binding.historyRecyclerview.addItemDecoration(divider)
 
         viewModel.historyList.observe(viewLifecycleOwner) { history ->
             historyAdapter.updateData(history)
         }
     }
-    
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
@@ -181,7 +193,7 @@ class HistoryFragment : Fragment() {
         binding.etDialogInput.setText(currentTitle)
         binding.etDialogInput.visibility = View.VISIBLE
         binding.tvDialogMessage.visibility = View.GONE
-        
+
         // 移动光标到末尾
         binding.etDialogInput.setSelection(currentTitle.length)
 
@@ -216,10 +228,10 @@ class HistoryFragment : Fragment() {
         binding.etDialogInput.visibility = View.GONE
         binding.tvDialogMessage.visibility = View.VISIBLE
         binding.tvDialogMessage.text = "确定要删除这个对话吗？"
-        
+
         // 设置删除按钮文本
-        (binding.btnConfirm as? android.widget.TextView)?.text = "删除"
-        
+        (binding.btnConfirm as? TextView)?.text = "删除"
+
         binding.btnCancel.setOnClickListener {
             dialog.dismiss()
         }
