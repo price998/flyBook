@@ -157,6 +157,11 @@ class HistoryFragment : Fragment() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        viewModel.loadHistory()
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null

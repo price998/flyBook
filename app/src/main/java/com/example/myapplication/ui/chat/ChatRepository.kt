@@ -34,6 +34,18 @@ class ChatRepository(
     // ==================== 对话管理 ====================
     
     /**
+     * 创建新对话（自动截断标题）
+     * 自动将过长的内容截断作为标题
+     * 
+     * @param content 原始内容（将作为标题来源）
+     * @return 新创建的对话ID
+     */
+    suspend fun createConversationWithTruncatedTitle(content: String): String = withContext(Dispatchers.IO) {
+        val displayTitle = if (content.length > 20) content.substring(0, 20) + "..." else content
+        createConversation(displayTitle)
+    }
+
+    /**
      * 创建新对话
      * 
      * @param title 对话标题
@@ -85,6 +97,46 @@ class ChatRepository(
                 )
             )
         }
+    }
+
+    /**
+     * 生成假数据对话
+     *
+     * @param pairCount 对话轮数（默认为1000轮）
+     * @return 新创建的对话ID
+     */
+    suspend fun generateFakeData(pairCount: Int = 1000): String = withContext(Dispatchers.IO) {
+        val title = "假数据长对话（$pairCount 轮）"
+        val conversationId = createConversation(title)
+        
+        val baseTime = System.currentTimeMillis() - pairCount * 4_000L
+
+        for (i in 0 until pairCount) {
+            val round = i + 1
+
+            // 用户消息
+            val userMsg = ChatMessage(
+                content = "第 $round 轮提问：这是用于测试长列表和分页加载的假数据问题。",
+                isUser = true,
+                timestamp = baseTime + i * 4_000L
+            )
+
+            // AI 消息（稍微长一点）
+            val botMsg = ChatMessage(
+                content = buildString {
+                    append("第 $round 轮回答：这是 AI 的假数据回复，用来测试 RecyclerView 渲染和分页加载性能。\n")
+                    append("这一轮是总共 $pairCount 轮中的第 $round 轮，你可以上拉加载更多历史消息。")
+                },
+                isUser = false,
+                timestamp = baseTime + i * 4_000L + 2_000L
+            )
+
+            // 顺带更新会话的 messageCount、lastMessagePreview 等
+            saveMessage(conversationId, userMsg)
+            saveMessage(conversationId, botMsg)
+        }
+        
+        conversationId
     }
 
     // ==================== 消息管理 ====================

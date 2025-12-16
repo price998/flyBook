@@ -372,6 +372,7 @@ class InputBarFragment : Fragment() {
         binding.ivStop.setOnClickListener { listener?.onStopClick() }
         binding.ivMore.setOnClickListener { showAttachmentOptions(it) }
         
+        // 通知viewModel切换模式
         binding.ivMic.setOnClickListener {
             viewModel.toggleInputMode()
         }

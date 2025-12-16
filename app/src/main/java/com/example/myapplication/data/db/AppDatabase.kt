@@ -22,7 +22,7 @@ import com.example.myapplication.data.db.chat.MessageEntity
         AttachmentEntity::class,
         AccountEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true // 导出 schema 便于管理迁移
 )
 abstract class AppDatabase : RoomDatabase() {

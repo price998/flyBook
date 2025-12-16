@@ -1,23 +1,20 @@
 package com.example.myapplication.ui.main
 
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.MotionEvent
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewbinding.ViewBinding
 import com.example.myapplication.R
 import com.example.myapplication.databinding.ActivityMainBinding
-import com.example.myapplication.ui.base.BaseHistoryActivity
-import com.example.myapplication.ui.common.managers.ModelManager
+import com.example.myapplication.ui.base.BaseChatActivity
 import com.example.myapplication.ui.common.managers.SidebarManager
 import com.example.myapplication.ui.common.navigation.AppNavigator
 import com.example.myapplication.ui.history.view.HistoryFragment
-import com.example.myapplication.ui.history.viewmodel.HistoryViewModel
-import com.example.myapplication.ui.inputbar.InputBarFragment
 import com.example.myapplication.ui.inputbar.InputBarViewModel
 import com.example.myapplication.ui.main.adapters.TopicAdapter
 import kotlinx.coroutines.Job
@@ -32,43 +29,58 @@ import kotlinx.coroutines.launch
  * - 展示推荐话题列表
  * - 处理话题自动滚动
  * - 创建新对话并跳转到 ChatActivity
- * - 管理输入栏和附件选择
  *
- * 使用组合模式管理功能：
- * - SidebarManager: 侧边栏管理
- * - InputBarFragment: 输入栏（包含附件选择、语音识别）
+ * 继承 BaseChatActivity 以复用 Sidebar 和 InputBar 逻辑
  */
-class MainActivity : BaseHistoryActivity(), InputBarFragment.InputBarListener {
+class MainActivity : BaseChatActivity() {
 
     companion object {
         /** Intent 参数：是否重置输入模式 */
         const val EXTRA_RESET_INPUT_MODE = "extra_reset_input_mode"
-        /** 录音权限请求码 */
-        const val REQUEST_RECORD_AUDIO_PERMISSION = 2
     }
 
     // UI Components
     private lateinit var binding: ActivityMainBinding
     private lateinit var topicAdapter: TopicAdapter
-    private lateinit var inputBarFragment: InputBarFragment
 
     // ViewModels
     private lateinit var viewModel: MainViewModel
-    private lateinit var historyViewModel: HistoryViewModel
-    private val inputBarViewModel: InputBarViewModel by viewModels()
-
-    // Managers (组合模式)
-    private lateinit var sidebarManager: SidebarManager
 
     /** 话题列表自动滚动任务 */
     private var autoScrollJob: Job? = null
     /** 用户是否正在与话题列表交互 */
     private var isUserInteracting = false
 
-    // ========== HistoryFragment.Listener 实现（覆盖基类默认实现） ==========
+    // ========== BaseChatActivity 抽象方法实现 ==========
+
+    override fun getDrawerLayout(): DrawerLayout = binding.drawerLayout
+    override fun getSidebarBinding(): com.example.myapplication.databinding.IncludeSidebarCommonBinding = binding.includeSidebar
+    override fun getInputBarContainerId(): Int = R.id.input_bar_fragment
+
+    // 历史对话跳转
     override fun onHistorySelected(conversationId: String) {
         sidebarManager.closeDrawer()
         AppNavigator.navigateToHistoryChat(this, conversationId)
+    }
+
+    // 新建对话逻辑
+    override fun onNewChatClick() {
+        // 清空输入框和附件
+        inputBarFragment.clearInput()
+        inputBarFragment.clearMediaItems()
+        // 重置侧边栏选中状态
+        sidebarManager.updateSelection(SidebarManager.SidebarItem.NEW_CHAT)
+        Toast.makeText(this, "新建对话", Toast.LENGTH_SHORT).show()
+    }
+
+    // 生成假数据逻辑
+    override fun onGenerateFakeData() {
+        Toast.makeText(this, "正在生成假数据对话…", Toast.LENGTH_SHORT).show()
+        viewModel.generateFakeConversation { conversationId ->
+            // 生成完成后直接跳到ChatActivity展示这条长对话
+            sidebarManager.closeDrawer()
+            AppNavigator.navigateToChat(this, conversationId = conversationId)
+        }
     }
 
     // ========== Activity 生命周期 ==========
@@ -88,17 +100,10 @@ class MainActivity : BaseHistoryActivity(), InputBarFragment.InputBarListener {
         setContentView(binding.root)
 
         viewModel = ViewModelProvider(this)[MainViewModel::class.java]
-        historyViewModel = ViewModelProvider(this)[HistoryViewModel::class.java]
         android.util.Log.d("MainActivity", "ViewModels 初始化完成")
 
-        // 初始化 InputBarFragment（必须在 setupWindowInsets 之前）
-        supportFragmentManager.executePendingTransactions()
-        inputBarFragment =
-                supportFragmentManager.findFragmentById(R.id.input_bar_fragment) as InputBarFragment
-        inputBarFragment.setListener(this)
-
         setupWindowInsetsForDialogue()
-        setupSidebar()
+        setupCommonUI()
         setupClickListeners()
         setupHistoryFragment(null)
         setupTopics()
@@ -109,13 +114,9 @@ class MainActivity : BaseHistoryActivity(), InputBarFragment.InputBarListener {
 
     override fun onResume() {
         super.onResume()
-        historyViewModel.loadHistory()
+        // 基类已处理 InputBar 状态同步
         sidebarManager.updateSelection(SidebarManager.SidebarItem.NEW_CHAT)
         startAutoScroll()
-
-        // 同步联网搜索状态（从持久化存储读取）
-        val isWebSearchEnabled = InputBarViewModel.getWebSearchEnabled(this)
-        inputBarFragment.setWebSearchEnabled(isWebSearchEnabled)
     }
 
     override fun onPause() {
@@ -125,7 +126,6 @@ class MainActivity : BaseHistoryActivity(), InputBarFragment.InputBarListener {
 
     override fun onDestroy() {
         super.onDestroy()
-        // 清理资源，避免内存泄漏
         stopAutoScroll()
     }
 
@@ -144,22 +144,6 @@ class MainActivity : BaseHistoryActivity(), InputBarFragment.InputBarListener {
         )
     }
 
-    /** 设置侧边栏管理器 */
-    private fun setupSidebar() {
-        sidebarManager =
-                SidebarManager(
-                        drawerLayout = binding.drawerLayout,
-                        sidebarBinding = binding.includeSidebar,
-                        listener =
-                                object : SidebarManager.Listener {
-                                    override fun onItemClick(item: SidebarManager.SidebarItem) {
-                                        onSidebarItemClick(item)
-                                    }
-                                }
-                )
-        sidebarManager.setup()
-    }
-
     /** 设置历史对话列表 Fragment */
     private fun setupHistoryFragment(currentConversationId: String?) {
         val fragment = HistoryFragment.newInstance(currentConversationId)
@@ -167,38 +151,6 @@ class MainActivity : BaseHistoryActivity(), InputBarFragment.InputBarListener {
                 .beginTransaction()
                 .replace(R.id.history_fragment_container, fragment)
                 .commit()
-    }
-
-    /** 处理侧边栏按钮点击事件 */
-    private fun onSidebarItemClick(item: SidebarManager.SidebarItem) {
-        when (item) {
-            SidebarManager.SidebarItem.TRASH -> {
-                AppNavigator.navigateToTrash(this)
-            }
-            SidebarManager.SidebarItem.SEARCH -> {
-                AppNavigator.navigateToSearch(this)
-            }
-            SidebarManager.SidebarItem.NEW_CHAT -> {
-                // 清空输入框和附件
-                inputBarFragment.clearInput()
-                inputBarFragment.clearMediaItems()
-                // 重置侧边栏选中状态
-                sidebarManager.updateSelection(SidebarManager.SidebarItem.NEW_CHAT)
-                Toast.makeText(this, "新建对话", Toast.LENGTH_SHORT).show()
-            }
-            SidebarManager.SidebarItem.KNOWLEDGE_BASE -> {
-                sidebarManager.updateSelection(SidebarManager.SidebarItem.KNOWLEDGE_BASE)
-                Toast.makeText(this, "知识库", Toast.LENGTH_SHORT).show()
-            }
-            SidebarManager.SidebarItem.GENERATE_FAKE_DATA -> {
-                Toast.makeText(this, "正在生成假数据对话…", Toast.LENGTH_SHORT).show()
-
-                historyViewModel.generateFakeConversation { conversationId ->
-                    // 生成完成后直接跳到 ChatActivity 展示这条长对话
-                    AppNavigator.navigateToChat(this, conversationId = conversationId)
-                }
-            }
-        }
     }
 
     /** 设置点击监听器 */
@@ -216,7 +168,7 @@ class MainActivity : BaseHistoryActivity(), InputBarFragment.InputBarListener {
                 val isVoiceMode = !(inputBarViewModel.isKeyboardMode.value ?: true)
 
                 android.util.Log.d("MainActivity", "开始创建话题对话: $content")
-                historyViewModel.createNewConversation(content) { conversationId ->
+                viewModel.createNewConversation(content) { conversationId ->
                     android.util.Log.d("MainActivity", "话题对话创建成功，ID: $conversationId")
                     runOnUiThread {
                         try {
@@ -245,15 +197,19 @@ class MainActivity : BaseHistoryActivity(), InputBarFragment.InputBarListener {
         }
 
         binding.topicRecyclerview.apply {
+            // 布局设置
             layoutManager =
                     androidx.recyclerview.widget.StaggeredGridLayoutManager(
                             2,
                             androidx.recyclerview.widget.StaggeredGridLayoutManager.HORIZONTAL
                     )
+
+            // 绑定adapter
             adapter = topicAdapter
 
             android.util.Log.d("MainActivity", "RecyclerView 设置完成，adapter: ${adapter != null}")
 
+            // 添加触摸事件监听器
             addOnItemTouchListener(
                     object : RecyclerView.SimpleOnItemTouchListener() {
                         override fun onInterceptTouchEvent(
@@ -304,8 +260,6 @@ class MainActivity : BaseHistoryActivity(), InputBarFragment.InputBarListener {
 
     /** 观察 ViewModel 的 LiveData，实现数据变化自动更新 UI */
     private fun observeViewModel() {
-        // 历史列表由 Fragment 管理，此处不再直接更新 Adapter
-
         viewModel.topicList.observe(this) { topics ->
             android.util.Log.d("MainActivity", "话题列表更新，数量: ${topics.size}")
             topics.forEachIndexed { index, topic ->
@@ -314,48 +268,11 @@ class MainActivity : BaseHistoryActivity(), InputBarFragment.InputBarListener {
             topicAdapter.updateData(topics)
         }
 
-        // 观察输入模式变化（从 InputBarViewModel）
-        inputBarViewModel.isKeyboardMode.observe(this) { isKeyboardMode ->
-            // 仅当切换到键盘模式且处于活动状态时才显示键盘
-            if (isKeyboardMode == true && hasWindowFocus()) {
-                inputBarFragment.requestInputFocus()
-                val imm =
-                        getSystemService(INPUT_METHOD_SERVICE) as
-                                android.view.inputmethod.InputMethodManager
-                imm.showSoftInput(
-                        inputBarFragment.view,
-                        android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT
-                )
-            }
-        }
-
         // 观察toast消息
         viewModel.toastMessage.observe(this) { message ->
             message?.let {
                 Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
                 viewModel.onToastShown()
-            }
-        }
-    }
-
-    // ========== 权限处理 ==========
-
-    /** 处理权限请求结果 */
-    override fun onRequestPermissionsResult(
-            requestCode: Int,
-            permissions: Array<out String>,
-            grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        when (requestCode) {
-            REQUEST_RECORD_AUDIO_PERMISSION -> {
-                if (grantResults.isNotEmpty() &&
-                                grantResults[0] == PackageManager.PERMISSION_GRANTED
-                ) {
-                    Toast.makeText(this, "录音权限已授予", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(this, "需要录音权限才能使用语音输入", Toast.LENGTH_SHORT).show()
-                }
             }
         }
     }
@@ -388,7 +305,8 @@ class MainActivity : BaseHistoryActivity(), InputBarFragment.InputBarListener {
                 }
 
         android.util.Log.d("MainActivity", "开始创建新对话: $displayTitle")
-        historyViewModel.createNewConversation(displayTitle) { conversationId ->
+        // 在数据库里创建新对话
+        viewModel.createNewConversation(displayTitle) { conversationId ->
             android.util.Log.d("MainActivity", "对话创建成功，ID: $conversationId")
 
             // 如果开启了联网搜索，给用户提示
@@ -411,34 +329,6 @@ class MainActivity : BaseHistoryActivity(), InputBarFragment.InputBarListener {
                 inputBarFragment.clearInput()
                 inputBarFragment.clearMediaItems()
             }
-        }
-    }
-
-    override fun onStopClick() {
-        // MainActivity 不需要停止生成功能
-    }
-
-    override fun onModelSelectorClick() {
-        showModelSelectorDialog()
-    }
-
-    override fun onWebSearchToggle(isEnabled: Boolean) {
-        val message = if (isEnabled) "联网搜索已开启" else "联网搜索已关闭"
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-    }
-
-    override fun onVoiceResult(text: String) {
-        // 语音识别结果：自动切换到键盘模式并填入输入框
-        inputBarFragment.setInputMode(true)
-        inputBarFragment.setInputText(text)
-    }
-
-    // ========== 模型选择 ==========
-
-    /** 显示模型选择对话框 */
-    private fun showModelSelectorDialog() {
-        ModelManager.showSelector(this) { modelConfig ->
-            Toast.makeText(this, "已切换到: ${modelConfig.displayName}", Toast.LENGTH_SHORT).show()
         }
     }
 }

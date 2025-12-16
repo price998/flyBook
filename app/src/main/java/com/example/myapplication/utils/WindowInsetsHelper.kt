@@ -46,18 +46,22 @@ object WindowInsetsHelper {
      * @param inputLayout 输入布局的根View
      */
     fun setupInputLayoutInsets(inputLayout: View) {
+        // 给view设置监听器
         ViewCompat.setOnApplyWindowInsetsListener(inputLayout) { v, insets ->
+            // 获取系统栏和键盘高度
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
             
             // 取键盘高度和系统栏高度的最大值
             val bottomPadding = maxOf(imeInsets.bottom, systemBars.bottom)
             
-            // 设置底部边距
+            // 设置输入框底部边距
+            // layoutParams这个布局参数是可以调整margin外边距的类型
             val params = v.layoutParams as ViewGroup.MarginLayoutParams
             params.bottomMargin = bottomPadding
             v.layoutParams = params
             
+            // 返回insets
             insets
         }
     }
@@ -71,9 +75,11 @@ object WindowInsetsHelper {
      */
     fun setupSidebarInsets(sidebarLayout: View) {
         ViewCompat.setOnApplyWindowInsetsListener(sidebarLayout) { v, insets ->
+            // 获取系统栏的高度
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             // 添加24dp的额外顶部间距，使内容更美观
             val extraTopPadding = (24 * v.resources.displayMetrics.density).toInt()
+            // 设置新的 padding
             v.setPadding(
                 v.paddingLeft,
                 systemBars.top + extraTopPadding,

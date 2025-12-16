@@ -172,9 +172,7 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             Log.w(TAG, "conversationId为空，创建新对话")
             viewModelScope.launch {
                 try {
-                    val title =
-                            if (content.length > 20) content.substring(0, 20) + "..." else content
-                    conversationId = repository.createConversation(title)
+                    conversationId = repository.createConversationWithTruncatedTitle(content)
                     Log.d(TAG, "创建新对话: $conversationId")
                     // 递归调用，这次conversationId已经有值了
                     sendMessage(content)
@@ -744,6 +742,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 repository.deleteMessagesByTimestamps(conversationId, timestamps)
             } catch (e: Exception) {
                 Log.e(TAG, "deleteMessagePair failed", e)
+            }
+        }
+    }
+
+    /** 生成一条长对话假数据 */
+    fun generateFakeConversation(onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val conversationId = repository.generateFakeData()
+                onResult(conversationId)
+            } catch (e: Exception) {
+                Log.e(TAG, "生成假数据失败", e)
             }
         }
     }
