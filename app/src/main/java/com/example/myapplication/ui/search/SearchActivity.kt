@@ -10,17 +10,23 @@ import android.text.TextWatcher
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.myapplication.R
+import com.example.myapplication.ui.base.BaseActivity
+import com.example.myapplication.ui.history.adapters.HistoryAdapter
 import com.example.myapplication.databinding.ActivitySearchBinding
 import com.example.myapplication.ui.chat.ChatActivity
-import com.example.myapplication.ui.history.adapters.HistoryAdapter
+import com.example.myapplication.ui.history.HistoryViewModel
 
-class SearchActivity : AppCompatActivity() {
+/**
+ * 搜索 Activity
+ * 
+ * 职责：
+ * - 提供历史对话搜索功能
+ * - 实时搜索并高亮关键字
+ * - 点击搜索结果跳转到对应对话
+ */
+class SearchActivity : BaseActivity() {
 
     private lateinit var binding: ActivitySearchBinding
     private lateinit var viewModel: SearchViewModel // ← 改为SearchViewModel！
@@ -30,9 +36,6 @@ class SearchActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivitySearchBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        // 设置状态栏为白色
-        setupStatusBar()
 
         // 初始化 ViewModel（绑定到SearchActivity的生命周期）
         viewModel = ViewModelProvider(this)[SearchViewModel::class.java]

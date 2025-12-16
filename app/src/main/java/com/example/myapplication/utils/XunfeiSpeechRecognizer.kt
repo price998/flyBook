@@ -16,13 +16,61 @@ import org.json.JSONException
 import org.json.JSONObject
 
 /**
- * 科大讯飞语音识别工具类
+ * 科大讯飞语音识别工具类（封装第三方 SDK）
+ * 
+ * 职责：
+ * 1. 封装科大讯飞语音识别 SDK
+ * 2. 提供简化的 API 接口
+ * 3. 管理识别生命周期
+ * 4. 处理识别结果和错误
+ * 
+ * 核心功能：
+ * - 语音转文字（中文普通话）
+ * - 实时音量监听
+ * - 自动添加标点符号
+ * - 前后端点检测（自动判断说话开始和结束）
+ * 
+ * 配置参数：
+ * - 语言：中文（zh_cn）
+ * - 口音：普通话（mandarin）
+ * - 前端点超时：4秒（用户4秒不说话则超时）
+ * - 后端点超时：1秒（用户停止说话1秒后结束识别）
+ * - 标点符号：自动添加
+ * 
+ * 使用方式：
+ * ```kotlin
+ * val recognizer = XunfeiSpeechRecognizer(context)
+ * recognizer.init()
+ * recognizer.setOnResultListener { text ->
+ *     // 处理识别结果
+ * }
+ * recognizer.startListening()
+ * ```
+ * 
+ * 安全性：
+ * - APPID 从 BuildConfig 读取（不硬编码）
+ * - 在 local.properties 中配置：XUNFEI_APPID=your_appid
+ * 
+ * 注意事项：
+ * - 需要录音权限（RECORD_AUDIO）
+ * - 需要网络权限（在线识别）
+ * - 使用完毕后需调用 destroy() 释放资源
+ * 
+ * @param context Android Context
  */
 class XunfeiSpeechRecognizer(private val context: Context) {
     
     companion object {
         private const val TAG = "XunfeiSpeechRecognizer"
-        // 从 BuildConfig 读取科大讯飞 APPID（安全存储）
+        
+        /**
+         * 科大讯飞 APPID（从 BuildConfig 读取）
+         * 
+         * 配置方式：
+         * 1. 在项目根目录创建 local.properties 文件
+         * 2. 添加：XUNFEI_APPID=your_appid_here
+         * 3. BuildConfig 会自动生成 XUNFEI_APPID 常量
+         */
         private val APPID: String by lazy {
             BuildConfig.XUNFEI_APPID.also {
                 if (it.isEmpty()) {
@@ -32,10 +80,19 @@ class XunfeiSpeechRecognizer(private val context: Context) {
         }
     }
     
+    /** 语音识别器实例 */
     private var speechRecognizer: SpeechRecognizer? = null
+    
+    /** 是否正在识别 */
     private var isListening = false
+    
+    /** 识别结果回调 */
     private var onResultListener: ((String) -> Unit)? = null
+    
+    /** 错误回调 */
     private var onErrorListener: ((String) -> Unit)? = null
+    
+    /** 音量变化回调 */
     private var onVolumeChangedListener: ((Int) -> Unit)? = null
     
     // 初始化监听器
@@ -215,14 +272,25 @@ class XunfeiSpeechRecognizer(private val context: Context) {
     
     /**
      * 设置音量变化监听器
+     * 
+     * @param listener 音量变化回调（参数为音量值 0-30）
      */
     @Suppress("unused")
-
-    
-    /**    fun setOnVolumeChangedListener(listener: (Int) -> Unit) {
-    onVolumeChangedListener = listener
+    fun setOnVolumeChangedListener(listener: (Int) -> Unit) {
+        onVolumeChangedListener = listener
     }
+    
+    /**
      * 销毁资源
+     * 
+     * 功能：
+     * 1. 取消当前识别
+     * 2. 销毁识别器
+     * 3. 释放资源
+     * 
+     * 注意：
+     * - 必须在不再使用时调用，避免内存泄漏
+     * - 通常在 Activity/Fragment 的 onDestroy 中调用
      */
     fun destroy() {
         speechRecognizer?.cancel()

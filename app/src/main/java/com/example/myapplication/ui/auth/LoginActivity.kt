@@ -29,6 +29,22 @@ import com.example.myapplication.ui.main.MainActivity
 class LoginActivity : AppCompatActivity() {
 
     /**
+     * 设置状态栏样式
+     * 统一使用白色背景 + 深色图标
+     */
+    private fun setupStatusBar() {
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.WHITE
+        window.navigationBarColor = android.graphics.Color.WHITE
+        
+        // 设置状态栏图标为深色（适配白色背景）
+        androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true  // 深色图标
+            isAppearanceLightNavigationBars = true  // 深色导航栏图标
+        }
+    }
+
+    /**
      * ViewModel 实例
      *
      * by viewModels()：Kotlin 委托属性，自动创建和管理 ViewModel
@@ -70,6 +86,9 @@ class LoginActivity : AppCompatActivity() {
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // 设置状态栏样式（白色背景 + 深色图标）
+        setupStatusBar()
 
         // 初始化 ViewBinding
         binding = ActivityLoginBinding.inflate(layoutInflater)

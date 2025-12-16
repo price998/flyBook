@@ -12,15 +12,48 @@ import com.example.myapplication.databinding.DialogModelSelectorBinding
 import com.google.android.material.bottomsheet.BottomSheetDialog
 
 /**
- * 模型管理器 - 单例模式
- * 
- * 统一管理 AI 模型的选择、切换和选择对话框
+ * 模型管理器（单例模式）
  * 
  * 职责：
- * - 管理当前选中的模型状态
- * - 持久化模型选择到 SharedPreferences
- * - 提供 LiveData 供 UI 观察模型变化
+ * 1. 统一管理 AI 模型的选择和切换
+ * 2. 持久化模型选择（SharedPreferences）
+ * 3. 提供模型选择对话框
+ * 4. 提供 LiveData 供 UI 观察模型变化
+ * 
+ * 核心功能：
+ * - 获取当前选中的模型
+ * - 切换模型
  * - 显示模型选择对话框
+ * - 自动保存用户选择
+ * 
+ * 设计模式：
+ * - 单例模式（object）：全局唯一实例
+ * - 延迟初始化：首次使用时才初始化
+ * - 观察者模式：通过 LiveData 通知 UI 更新
+ * 
+ * 使用方式：
+ * ```kotlin
+ * // 获取当前模型
+ * val model = ModelManager.getCurrentModel(context)
+ * 
+ * // 显示模型选择对话框
+ * ModelManager.showSelector(activity) { selectedModel ->
+ *     // 处理模型选择
+ * }
+ * ```
+ * 
+ * 数据持久化：
+ * - 使用 SharedPreferences 保存用户选择
+ * - 应用重启后自动恢复上次选择的模型
+ * 
+ * 模型配置：
+ * - 所有可用模型定义在 ModelRegistry 中
+ * - 默认模型：ModelRegistry.DEFAULT_MODEL
+ * 
+ * 优势：
+ * - 统一管理：避免重复代码
+ * - 状态同步：所有界面使用同一个模型实例
+ * - 易于扩展：新增模型只需修改 ModelRegistry
  */
 object ModelManager {
     

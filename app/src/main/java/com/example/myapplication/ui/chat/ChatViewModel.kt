@@ -18,45 +18,129 @@ import com.example.myapplication.ui.common.managers.ModelManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/**
+ * 聊天 ViewModel（MVVM 架构的核心）
+ * 
+ * 职责：
+ * 1. 管理聊天界面的所有业务逻辑
+ * 2. 处理流式响应（SSE）并实现打字机效果
+ * 3. 管理消息列表状态
+ * 4. 协调多个 Repository（ChatRepository、InputBarRepository、WebSearchService）
+ * 5. 提供 LiveData 供 View 层观察
+ * 
+ * 核心功能：
+ * - 发送消息（文本、图片OCR、文件解析）
+ * - 流式接收 AI 回复（打字机效果）
+ * - 分页加载历史消息
+ * - 停止生成
+ * - 联网搜索集成
+ * - 消息点赞/点踩
+ * - 删除消息
+ * 
+ * 性能优化：
+ * - 批量更新 UI（每4个字符更新一次）
+ * - 延迟控制（30ms，约30fps）
+ * - 异步 Markdown 渲染
+ * - 局部刷新（使用 PAYLOAD）
+ * 
+ * 线程安全：
+ * - 所有数据库操作在 IO 线程执行
+ * - LiveData 自动在主线程通知观察者
+ * - 使用协程管理异步任务
+ */
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
         private const val TAG = "ChatViewModel"
-        private const val TYPING_DELAY_MS = 30L // 30ms延迟，平衡流畅度与性能（约30fps）
-        private const val BATCH_SIZE = 4 // 每4个字符更新一次，减少UI渲染压力
+        
+        /**
+         * 打字机效果延迟（毫秒）
+         * 30ms ≈ 33fps，平衡流畅度与性能
+         */
+        private const val TYPING_DELAY_MS = 30L
+        
+        /**
+         * 批量更新大小（字符数）
+         * 每收到4个字符才更新一次UI，减少渲染压力
+         */
+        private const val BATCH_SIZE = 4
     }
 
+    // ==================== 依赖注入 ====================
+    
+    /** 数据库实例 */
     private val database = AppDatabase.getDatabase(application)
+    
+    /** 聊天数据仓库（处理消息和对话） */
     private val repository = ChatRepository(database.messageDao(), database.conversationDao())
+    
+    /** 联网搜索服务 */
     private val webSearchService: WebSearchService = SerperWebSearchService()
+    
+    /** 输入栏数据仓库（处理OCR和文件解析） */
     private val inputBarRepository = InputBarRepository(application)
 
-    // 当前对话ID
+    // ==================== 状态管理 ====================
+    
+    /**
+     * 当前对话ID
+     * 用于标识当前正在进行的对话
+     */
     private var conversationId: String = ""
+    
+    /** 对外暴露的当前对话ID（只读） */
     val currentConversationId: String
         get() = conversationId
 
+    /**
+     * 消息列表（LiveData）
+     * View 层观察此数据，当消息列表变化时自动更新 UI
+     */
     private val _messages = MutableLiveData(mutableListOf<ChatMessage>())
     val messages: LiveData<MutableList<ChatMessage>> = _messages
 
-    // 用于通知 UI 列表有更新（插入或修改）
+    /**
+     * 消息更新事件（LiveData）
+     * 用于通知 Adapter 进行精确的局部刷新
+     * 
+     * 事件类型：
+     * - ItemInserted：新消息插入
+     * - ItemChanged：消息内容更新（打字机效果）
+     * - HistoryLoaded：历史消息加载完成
+     * - NoMoreHistory：没有更多历史消息
+     */
     private val _messageUpdate = MutableLiveData<MessageUpdateEvent>()
     val messageUpdate: LiveData<MessageUpdateEvent> = _messageUpdate
 
+    /** 是否正在加载更多历史消息 */
     private var isLoadingMore = false
+    
+    /** 是否还有更多历史消息 */
     private var hasMoreHistory = true
 
-    // 停止生成标志
+    /**
+     * 停止生成标志
+     * 用户点击"停止"按钮时设置为 true
+     */
     private var stopGenerationFlag = false
 
-    // 是否正在生成
+    /**
+     * 是否正在生成（LiveData）
+     * View 层观察此数据，控制"发送"/"停止"按钮的显示
+     */
     private val _isGenerating = MutableLiveData(false)
     val isGenerating: LiveData<Boolean> = _isGenerating
 
-    // 聊天状态事件（用于 View 层显示状态文案）
+    /**
+     * 聊天状态事件（LiveData）
+     * 用于 View 层显示状态文案（如"正在搜索..."、"搜索完成"）
+     */
     private val _chatStatus = MutableLiveData<ChatStatusEvent>(ChatStatusEvent.Idle)
     val chatStatus: LiveData<ChatStatusEvent> = _chatStatus
 
-    // 图片OCR解析状态
+    /**
+     * OCR 识别进度（LiveData）
+     * 用于显示图片识别进度和结果
+     */
     private val _ocrProgress = MutableLiveData<OCRProgress>()
     val ocrProgress: LiveData<OCRProgress> = _ocrProgress
 
@@ -67,7 +151,22 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         data class Error(val message: String) : OCRProgress()
     }
 
-    // 设置对话ID（从Activity传入）
+    /**
+     * 设置对话ID（从 Activity 传入）
+     * 
+     * 功能：
+     * 1. 切换到新的对话
+     * 2. 取消当前正在进行的生成任务
+     * 3. 清空消息列表
+     * 4. 加载新对话的历史消息
+     * 
+     * 注意：
+     * - 只有当 ID 真正变化时才执行切换
+     * - 切换前会先停止当前的生成任务
+     * - 切换后会重置所有状态
+     * 
+     * @param id 新的对话ID
+     */
     fun setConversationId(id: String) {
         if (conversationId != id) {
             // 先取消正在进行的生成任务
@@ -89,6 +188,18 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 加载初始消息（对话打开时调用）
+     * 
+     * 功能：
+     * 1. 从数据库加载最新的20条消息
+     * 2. 去重（避免重复加载）
+     * 3. 更新消息列表
+     * 
+     * 注意：
+     * - 即使没有消息也会触发 LiveData 更新（通知 UI 加载完成）
+     * - 使用协程在后台线程执行数据库查询
+     */
     private fun loadInitialMessages() {
         if (conversationId.isEmpty()) return
 
@@ -118,6 +229,25 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 加载更多历史消息（分页加载）
+     * 
+     * 功能：
+     * 1. 获取当前最早消息的时间戳
+     * 2. 查询该时间戳之前的20条消息
+     * 3. 插入到列表开头
+     * 4. 通知 UI 更新
+     * 
+     * 防重复加载：
+     * - 使用 isLoadingMore 标志防止重复请求
+     * - 使用 hasMoreHistory 标志记录是否还有更多数据
+     * 
+     * 触发时机：
+     * - 用户滑动到列表顶部时（下拉刷新）
+     * 
+     * @see MessageUpdateEvent.HistoryLoaded 加载成功事件
+     * @see MessageUpdateEvent.NoMoreHistory 没有更多数据事件
+     */
     fun loadMoreHistory() {
         if (isLoadingMore || !hasMoreHistory) {
             // 如果没有更多历史记录，通知UI停止刷新
@@ -156,9 +286,28 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
 
+    /**
+     * 生成任务的协程 Job
+     * 用于取消正在进行的生成任务
+     */
     private var generationJob: kotlinx.coroutines.Job? = null
 
-    /** 停止生成 */
+    /**
+     * 停止生成
+     * 
+     * 功能：
+     * 1. 设置停止标志
+     * 2. 取消协程
+     * 3. 立即停止流式响应
+     * 
+     * 触发时机：
+     * - 用户点击"停止"按钮
+     * - 切换对话时
+     * 
+     * 注意：
+     * - 取消后会保存已生成的部分内容
+     * - 取消是异步的，可能需要短暂延迟
+     */
     fun stopGeneration() {
         Log.d(TAG, "停止生成请求")
         stopGenerationFlag = true
@@ -661,7 +810,10 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
      * 发送带附件的消息
      */
     fun sendMessageWithAttachments(textContent: String, imageUris: List<Uri>, fileUris: List<Uri>) {
-        Log.d(TAG, "开始处理带附件的消息 - 文本长度: ${textContent.length}, 图片: ${imageUris.size}, 文件: ${fileUris.size}")
+        Log.d(TAG, "========== 发送带附件的消息 ==========")
+        Log.d(TAG, "文本长度: ${textContent.length}")
+        Log.d(TAG, "图片数量: ${imageUris.size}")
+        Log.d(TAG, "文件数量: ${fileUris.size}")
         
         if (imageUris.isEmpty() && fileUris.isEmpty()) {
             Log.d(TAG, "无附件，直接发送文本消息")
@@ -685,35 +837,41 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     fileUris = fileUris,
                     onProgress = { current, total ->
                         Log.d(TAG, "OCR进度更新: $current/$total")
-                        _ocrProgress.value = OCRProgress.Recognizing(current, total)
+                        _ocrProgress.postValue(OCRProgress.Recognizing(current, total))
                     }
                 )
 
-                Log.d(TAG, "附件处理完成 - 最终内容长度: ${finalContent.length}")
+                Log.d(TAG, "========== 附件处理结果 ==========")
+                Log.d(TAG, "最终内容长度: ${finalContent.length}")
+                Log.d(TAG, "最终内容预览: ${finalContent.take(300)}")
 
                 if (finalContent.isBlank()) {
-                    Log.w(TAG, "附件解析结果为空")
+                    Log.e(TAG, "✗ 附件解析结果为空！")
                     if (imageUris.isNotEmpty()) {
-                        _ocrProgress.value = OCRProgress.Error("附件解析结果为空，请重试")
+                        _ocrProgress.value = OCRProgress.Error("图片识别失败，未识别到任何文字")
+                    } else if (fileUris.isNotEmpty()) {
+                        _ocrProgress.value = OCRProgress.Error("文件解析失败，无法读取文件内容")
                     }
                     return@launch
                 }
 
                 // 发送消息
-                Log.d(TAG, "发送包含附件内容的消息")
+                Log.d(TAG, "✓ 发送包含附件内容的消息")
                 sendMessage(finalContent)
 
                 // 更新进度状态
                 if (imageUris.isNotEmpty()) {
-                    Log.d(TAG, "OCR识别成功")
+                    Log.d(TAG, "✓ OCR识别成功")
                     _ocrProgress.value = OCRProgress.Success(finalContent)
                     delay(500)
                     _ocrProgress.value = OCRProgress.Idle
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "处理附件失败", e)
+                Log.e(TAG, "✗ 处理附件失败", e)
                 if (imageUris.isNotEmpty()) {
                     _ocrProgress.value = OCRProgress.Error("解析失败: ${e.message}")
+                } else {
+                    _ocrProgress.value = OCRProgress.Error("文件处理失败: ${e.message}")
                 }
             }
         }

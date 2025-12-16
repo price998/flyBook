@@ -37,6 +37,11 @@ class InputBarRepository(private val context: Context) {
     }
 
     private val contentResolver: ContentResolver = context.contentResolver
+    
+    init {
+        Log.d(TAG, "InputBarRepository 初始化")
+        Log.d(TAG, "Context: ${context.javaClass.simpleName}")
+    }
 
     // ========== 附件内容处理 ==========
 
@@ -49,38 +54,51 @@ class InputBarRepository(private val context: Context) {
         fileUris: List<Uri>,
         onProgress: ((current: Int, total: Int) -> Unit)? = null
     ): String = withContext(Dispatchers.IO) {
-        Log.d(TAG, "开始处理附件 - 文本: ${textContent.length}字符, 图片: ${imageUris.size}, 文件: ${fileUris.size}")
+        Log.d(TAG, "========== 开始处理附件 ==========")
+        Log.d(TAG, "文本内容: ${textContent.length}字符")
+        Log.d(TAG, "图片数量: ${imageUris.size}")
+        imageUris.forEachIndexed { index, uri ->
+            Log.d(TAG, "  图片${index + 1}: $uri")
+        }
+        Log.d(TAG, "文件数量: ${fileUris.size}")
+        fileUris.forEachIndexed { index, uri ->
+            Log.d(TAG, "  文件${index + 1}: $uri")
+        }
+        
         val sections = mutableListOf<String>()
 
         if (textContent.isNotBlank()) {
-            Log.d(TAG, "添加文本内容: ${textContent.length}字符")
+            Log.d(TAG, "添加用户输入文本: ${textContent.length}字符")
             sections.add(textContent)
         }
 
         if (imageUris.isNotEmpty()) {
-            Log.d(TAG, "开始处理图片 - 数量: ${imageUris.size}")
+            Log.d(TAG, "开始处理图片...")
             val imageSection = processImages(imageUris, onProgress)
             if (imageSection.isNotBlank()) {
-                Log.d(TAG, "图片处理完成 - 内容长度: ${imageSection.length}")
+                Log.d(TAG, "✓ 图片处理成功 - 内容长度: ${imageSection.length}")
                 sections.add(imageSection)
             } else {
-                Log.w(TAG, "图片处理结果为空")
+                Log.w(TAG, "✗ 图片处理结果为空")
             }
         }
 
         if (fileUris.isNotEmpty()) {
-            Log.d(TAG, "开始处理文件 - 数量: ${fileUris.size}")
+            Log.d(TAG, "开始处理文件...")
             val fileSection = processFiles(fileUris)
             if (fileSection.isNotBlank()) {
-                Log.d(TAG, "文件处理完成 - 内容长度: ${fileSection.length}")
+                Log.d(TAG, "✓ 文件处理成功 - 内容长度: ${fileSection.length}")
                 sections.add(fileSection)
             } else {
-                Log.w(TAG, "文件处理结果为空")
+                Log.w(TAG, "✗ 文件处理结果为空")
             }
         }
 
         val result = sections.joinToString("\n\n").trim()
-        Log.d(TAG, "附件处理完成 - 最终内容长度: ${result.length}, 段落数: ${sections.size}")
+        Log.d(TAG, "========== 附件处理完成 ==========")
+        Log.d(TAG, "最终内容长度: ${result.length}")
+        Log.d(TAG, "段落数: ${sections.size}")
+        Log.d(TAG, "内容预览: ${result.take(200)}")
         result
     }
 
@@ -88,33 +106,57 @@ class InputBarRepository(private val context: Context) {
         imageUris: List<Uri>,
         onProgress: ((current: Int, total: Int) -> Unit)?
     ): String {
-        Log.d(TAG, "开始处理图片列表 - 数量: ${imageUris.size}")
+        Log.d(TAG, "========== 开始处理图片列表 ==========")
+        Log.d(TAG, "图片数量: ${imageUris.size}")
+        
+        // 首次处理图片时，执行诊断检查
+        if (imageUris.isNotEmpty()) {
+            try {
+                val diagnostic = com.example.myapplication.utils.MLKitDiagnostics.checkMLKitAvailability(context)
+                if (!diagnostic.success) {
+                    Log.e(TAG, "✗ ML Kit 不可用: ${diagnostic.message}")
+                    return "【图片识别失败】\nML Kit 不可用，请确保设备已安装 Google Play Services 并联网。\n错误: ${diagnostic.message}"
+                }
+                Log.d(TAG, "✓ ML Kit 可用性检查通过")
+            } catch (e: Exception) {
+                Log.e(TAG, "ML Kit 诊断检查失败", e)
+            }
+        }
+        
         val results = mutableListOf<String>()
 
         imageUris.forEachIndexed { index, uri ->
             try {
-                Log.d(TAG, "处理图片 ${index + 1}/${imageUris.size}: $uri")
+                Log.d(TAG, "---------- 处理图片 ${index + 1}/${imageUris.size} ----------")
+                Log.d(TAG, "URI: $uri")
                 onProgress?.invoke(index + 1, imageUris.size)
+                
                 val recognizedText = parseImageOCR(uri)
 
-                if (recognizedText.startsWith("错误") ||
+                if (recognizedText.isEmpty()) {
+                    Log.w(TAG, "⚠️ 图片OCR识别结果为空")
+                    results.add("[图片${index + 1}：未识别到文字]")
+                } else if (recognizedText.startsWith("错误") ||
                     recognizedText.startsWith("OCR识别失败") ||
-                    recognizedText.startsWith("处理图片失败")
+                    recognizedText.startsWith("处理图片失败") ||
+                    recognizedText.startsWith("无法访问")
                 ) {
-                    results.add("")
-                    Log.w(TAG, "图片OCR识别失败: $uri - 结果: $recognizedText")
+                    Log.w(TAG, "✗ 图片OCR识别失败: $recognizedText")
+                    results.add("[图片${index + 1}：识别失败 - ${recognizedText}]")
                 } else {
-                    Log.d(TAG, "图片OCR识别成功 - 文本长度: ${recognizedText.length}")
+                    Log.d(TAG, "✓ 图片OCR识别成功 - 文本长度: ${recognizedText.length}")
                     results.add(recognizedText)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "图片OCR解析异常: $uri", e)
-                results.add("")
+                Log.e(TAG, "✗ 图片OCR解析异常", e)
+                results.add("[图片${index + 1}：解析异常 - ${e.message}]")
             }
         }
 
         val section = buildImageSection(results)
-        Log.d(TAG, "图片处理完成 - 有效结果: ${results.count { it.isNotBlank() }}/${results.size}")
+        Log.d(TAG, "========== 图片处理完成 ==========")
+        Log.d(TAG, "有效结果: ${results.count { !it.startsWith("[图片") }}/${results.size}")
+        Log.d(TAG, "失败结果: ${results.count { it.startsWith("[图片") }}/${results.size}")
         return section
     }
 
@@ -132,11 +174,14 @@ class InputBarRepository(private val context: Context) {
     }
 
     private fun buildImageSection(ocrResults: List<String>): String {
+        if (ocrResults.isEmpty()) return ""
+        
         val builder = StringBuilder()
+        builder.append("【图片内容】\n")
         ocrResults.forEachIndexed { index, ocrText ->
             if (ocrText.isNotBlank()) {
-                if (builder.isNotEmpty()) builder.append("\n\n")
-                builder.append("图片${index + 1}识别内容：\n$ocrText")
+                if (index > 0) builder.append("\n\n")
+                builder.append("图片${index + 1}：\n$ocrText")
             }
         }
         return builder.toString()
@@ -144,10 +189,12 @@ class InputBarRepository(private val context: Context) {
 
     private fun buildFileSection(fileResults: List<FileParseResult>): String {
         if (fileResults.isEmpty()) return ""
+        
         val builder = StringBuilder()
+        builder.append("【文件内容】\n")
         fileResults.forEachIndexed { index, result ->
-            if (builder.isNotEmpty()) builder.append("\n\n")
-            builder.append("文件${index + 1}（${result.fileName}）内容：\n${result.content}")
+            if (index > 0) builder.append("\n\n")
+            builder.append("文件${index + 1}（${result.fileName}）：\n${result.content}")
         }
         return builder.toString()
     }
@@ -159,23 +206,77 @@ class InputBarRepository(private val context: Context) {
      */
     private suspend fun parseImageOCR(uri: Uri): String = suspendCancellableCoroutine { continuation ->
         try {
-            val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
-            val image = InputImage.fromFilePath(context, uri)
+            Log.d(TAG, "========== 开始OCR识别 ==========")
+            Log.d(TAG, "URI: $uri")
+            Log.d(TAG, "URI Scheme: ${uri.scheme}")
+            Log.d(TAG, "URI Path: ${uri.path}")
             
-            Log.d(TAG, "开始OCR识别")
+            // 检查 URI 是否可访问
+            try {
+                val inputStream = contentResolver.openInputStream(uri)
+                if (inputStream == null) {
+                    Log.e(TAG, "无法打开图片输入流 - URI 可能无效")
+                    continuation.resume("无法访问图片文件")
+                    return@suspendCancellableCoroutine
+                }
+                inputStream.close()
+                Log.d(TAG, "✓ URI 可访问")
+            } catch (e: Exception) {
+                Log.e(TAG, "✗ 无法访问 URI", e)
+                continuation.resume("无法访问图片: ${e.message}")
+                return@suspendCancellableCoroutine
+            }
+            
+            // 创建 ML Kit 识别器
+            Log.d(TAG, "创建 ML Kit 中文识别器...")
+            val recognizer = TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+            
+            // 从 URI 加载图片
+            Log.d(TAG, "从 URI 加载图片...")
+            val image = try {
+                InputImage.fromFilePath(context, uri)
+            } catch (e: Exception) {
+                Log.e(TAG, "✗ 加载图片失败", e)
+                continuation.resume("加载图片失败: ${e.message}")
+                recognizer.close()
+                return@suspendCancellableCoroutine
+            }
+            
+            Log.d(TAG, "✓ 图片加载成功")
+            Log.d(TAG, "图片尺寸: ${image.width} x ${image.height}")
+            Log.d(TAG, "图片旋转角度: ${image.rotationDegrees}")
+            
+            // 开始 OCR 识别
+            Log.d(TAG, "开始 OCR 识别...")
             recognizer.process(image)
                 .addOnSuccessListener { visionText ->
-                    Log.d(TAG, "OCR识别成功，识别文字长度: ${visionText.text.length}")
-                    continuation.resume(visionText.text)
+                    val text = visionText.text.trim()
+                    Log.d(TAG, "========== OCR识别完成 ==========")
+                    Log.d(TAG, "识别文字长度: ${text.length}")
+                    Log.d(TAG, "识别块数量: ${visionText.textBlocks.size}")
+                    
+                    if (text.isEmpty()) {
+                        Log.w(TAG, "⚠️ OCR识别成功但未识别到任何文字")
+                        Log.w(TAG, "可能原因：图片中没有文字、文字太小、图片模糊等")
+                    } else {
+                        Log.d(TAG, "✓ 识别成功")
+                        Log.d(TAG, "识别内容预览: ${text.take(100)}")
+                    }
+                    
+                    continuation.resume(text)
                     recognizer.close()
                 }
                 .addOnFailureListener { e ->
-                    Log.e(TAG, "OCR识别失败", e)
+                    Log.e(TAG, "========== OCR识别失败 ==========")
+                    Log.e(TAG, "错误类型: ${e.javaClass.simpleName}")
+                    Log.e(TAG, "错误信息: ${e.message}", e)
                     continuation.resume("OCR识别失败: ${e.message}")
                     recognizer.close()
                 }
         } catch (e: Exception) {
-            Log.e(TAG, "处理图片时发生异常", e)
+            Log.e(TAG, "========== 处理图片时发生异常 ==========")
+            Log.e(TAG, "异常类型: ${e.javaClass.simpleName}")
+            Log.e(TAG, "异常信息: ${e.message}", e)
             continuation.resume("处理图片失败: ${e.message}")
         }
     }

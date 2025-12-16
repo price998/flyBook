@@ -248,8 +248,9 @@ class InputBarFragment : Fragment() {
     }
 
     private fun launchImagePicker() {
+        // 只选择图片，不包括视频（视频不支持 OCR）
         pickMultipleMedia.launch(
-            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
         )
     }
 

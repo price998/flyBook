@@ -88,7 +88,6 @@ class MainActivity : BaseChatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         android.util.Log.d("MainActivity", "onCreate 开始")
-        enableEdgeToEdge()
 
         // 重置会话状态（仅在首次创建时）
         if (savedInstanceState == null) {
